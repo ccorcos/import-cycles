@@ -1,7 +1,7 @@
 {
-	"name": "typescript-boilerplate",
+	"name": "import-cycles",
 	"version": "0.0.1",
-	"description": "boilerplate for web applications using typescript and webpack",
+	"description": "Parse and detect cyclical imports in TypeScript projects.",
 	"main": "build/src/index.js",
 	"scripts": {
 		"build": "tsc",
@@ -11,8 +11,11 @@
 	"keywords": [],
 	"author": "Chet Corcos <ccorcos@gmail.com>",
 	"license": "MIT",
-	"dependencies": {},
+	"dependencies": {
+		"lodash": "^4.17.21"
+	},
 	"devDependencies": {
+		"@types/lodash": "^4.14.180",
 		"@types/node": "^17.0.21",
 		"ava": "^4.1.0",
 		"typescript": "^4.6.2"
