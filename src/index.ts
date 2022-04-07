@@ -185,14 +185,18 @@ export function parseFileDependencies(filePath: string) {
 			// Ignore type exports.
 			if (importFileContents.includes("export type " + importName + " "))
 				continue
+			if (importFileContents.includes("export type " + importName + "<"))
+				continue
 			if (importFileContents.includes("export interface " + importName + " "))
+				continue
+			if (importFileContents.includes("export interface " + importName + "<"))
 				continue
 
 			// If it's a class export, then we need to check if its used as a type or a value to
 			// determine if the import will get compiled away.
-			const isClassImport = importFileContents.includes(
-				"export class " + importName + " "
-			)
+			const isClassImport =
+				importFileContents.includes("export class " + importName + " ") ||
+				importFileContents.includes("export class " + importName + "<")
 			if (!isClassImport) {
 				dependencies.push(importPath)
 				break namedImportsLoop
