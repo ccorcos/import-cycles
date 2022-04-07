@@ -1,8 +1,10 @@
 {
 	"name": "import-cycles",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Parse and detect cyclical imports in TypeScript projects.",
-	"repository": {"url": "https://github.com/ccorcos/import-cycles"},
+	"repository": {
+		"url": "https://github.com/ccorcos/import-cycles"
+	},
 	"main": "build/src/index.js",
 	"scripts": {
 		"build": "tsc",
@@ -24,5 +26,4 @@
 	"files": [
 		"build/src/*"
 	]
-
 }
