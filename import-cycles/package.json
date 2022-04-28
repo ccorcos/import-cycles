@@ -1,0 +1,24 @@
+{
+  "name": "test-parser",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "build-tests":"tsc -p test.tsconfig.json",
+    "install": "npm run build",
+    "test": "npm run build-tests && mocha tests-out/tests"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^17.0.25",
+    "typescript": "^4.6.3",
+    "typescript-parser": "^2.6.1"
+  },
+  "devDependencies": {
+    "@types/mocha": "^9.1.1",
+    "mocha": "^9.2.2"
+  }
+}
