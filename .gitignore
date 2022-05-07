@@ -1,4 +1,8 @@
+.DS_Store
 node_modules
+*.log
+build
+
 out
 tsconfig.tsbuildinfo
 tests-out

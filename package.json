@@ -1,24 +1,31 @@
 {
-  "name": "test-parser",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+	"name": "import-cycles",
+	"version": "0.0.8",
+	"description": "Parse and detect cyclical imports in TypeScript projects.",
+	"repository": {
+		"url": "https://github.com/ccorcos/import-cycles"
+	},
+	"main": "build/index.js",
   "scripts": {
+    "clean": "rm -rf build",
     "build": "tsc",
-    "build-tests":"tsc -p test.tsconfig.json",
-    "install": "npm run build",
-    "test": "npm run build-tests && mocha tests-out/tests"
+    "watch": "tsc --watch",
+    "test": "mocha -r ts-node/register './src/**/*.test.ts' --verbose",
+    "release": "npm run clean && npm run build && npm publish"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+	"author": "Chet Corcos <ccorcos@gmail.com>",
+	"license": "MIT",
   "dependencies": {
     "@types/node": "^17.0.25",
     "typescript": "^4.6.3",
     "typescript-parser": "^2.6.1"
   },
   "devDependencies": {
-    "@types/mocha": "^9.1.1",
+    "@types/mocha": "whitecolor/mocha-types",
     "mocha": "^9.2.2"
-  }
+  },
+  "files": [
+		"build/*"
+	]
 }

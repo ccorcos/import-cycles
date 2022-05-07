@@ -1,12 +1,12 @@
-import {
-	TypescriptParser,
-	Import as ParserImport,
-	SymbolSpecifier,
-	Declaration,
-	File as ParsedFile,
-} from "typescript-parser"
 import fs from "fs"
 import Path from "path"
+import {
+	Declaration,
+	File as ParsedFile,
+	Import as ParserImport,
+	SymbolSpecifier,
+	TypescriptParser,
+} from "typescript-parser"
 
 type Imports = string[]
 
