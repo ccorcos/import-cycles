@@ -99,13 +99,18 @@ async function getImportCycles(
 	return filesCycles
 }
 
+
+export function isATypeExport(declaration: any){
+	return declaration.__proto__.constructor.name === "TypeAliasDeclaration" || declaration.__proto__.constructor.name === "InterfaceDeclaration"
+}
+
 function getAllExportedDeclaration(declarations: Declaration[]): Declaration[] {
 	const exportedDeclarations: Declaration[] = []
 	for (let index = 0; index < declarations.length; index++) {
 		const declaration: any = declarations[index]
 		if (
-			declaration.isExported &&
-			declaration.__proto__.constructor.name !== "TypeAliasDeclaration"
+			declaration.isExported && 
+			!isATypeExport(declaration)
 		) {
 			exportedDeclarations.push(declaration)
 		}
@@ -157,7 +162,7 @@ async function validateImports(
 		}
 		// extract data from the sources of this file
 		const fileSource = getSource(resolvedPath)
-		const parsedSource = await parser.parseSource(fileSource.source)
+		const parsedSource = await parseSource(fileSource.source)
 
 		// Get all usefull declarations from the file ( ignoring TypeAliasDeclaration )
 		const importDeclarations = getAllExportedDeclaration(
@@ -236,8 +241,12 @@ async function validateImports(
 	return validatedImports
 }
 
-async function getImports(file: FileSource): Promise<Imports> {
-	const parsedSource = await parser.parseSource(file.source)
+export async function parseSource(source:string){
+	return await parser.parseSource(source)
+}
+
+export async function getImports(file: FileSource): Promise<Imports> {
+	const parsedSource = await parseSource(file.source)
 	const importsRaw = await validateImports(file, parsedSource)
 	const imports: Imports = []
 
