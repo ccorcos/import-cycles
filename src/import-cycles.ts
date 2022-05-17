@@ -136,9 +136,10 @@ async function validateImports(
 	entryFileSource: FileSource,
 	entryFileParsed: ParsedFile
 ): Promise<ParserImport[]> {
-	const entryFileDirPath = entryFileSource.filePath.substring(
+	const entryFileNormalizedPath = Path.normalize(entryFileSource.filePath);
+	const entryFileDirPath = entryFileNormalizedPath.substring(
 		0,
-		entryFileSource.filePath.lastIndexOf("\\")
+		entryFileNormalizedPath.lastIndexOf("/")
 	)
 	const validatedImports = []
 	for (let index = 0; index < entryFileParsed.imports.length; index++) {
