@@ -9,7 +9,6 @@ describe("exportIsType", () => {
 	})
 	it("detect exported interface", async () => {
 		const declaration = (await parseSource("export interface x {}")).declarations[0]
-		console.log(declaration)
 		assert.equal(isATypeExport(declaration), true)
 	})
 	it("detect exported class", async () => {
