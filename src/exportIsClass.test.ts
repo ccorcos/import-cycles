@@ -1,14 +1,22 @@
 import assert from "assert"
 import { describe, it } from "mocha"
+import { isAClassExport, parseSource } from "./import-cycles"
 
-// TODO: implement this.
-const exportIsClass: any = {}
-
-describe("exportIsClass", () => {
-	it("works", () => {
-		assert.equal(exportIsClass("x", "export type x = number"), false)
-		assert.equal(exportIsClass("x", "export interface x {}"), false)
-		assert.equal(exportIsClass("x", "export const x = 1"), false)
-		assert.equal(exportIsClass("x", "export class x {}"), true)
+describe("exportIsCLass", () => {
+	it("type", async () => {
+		const declaration = (await parseSource("export type x = number")).declarations[0]
+		assert.equal(isAClassExport(declaration), false)
+	})
+	it("interface", async () => {
+		const declaration = (await parseSource("export interface x {}")).declarations[0]
+		assert.equal(isAClassExport(declaration), false)
+	})
+	it("class", async () => {
+		const declaration = (await parseSource("export class x {}")).declarations[0]
+		assert.equal(isAClassExport(declaration), true)
+	})
+	it("var", async () => {
+		const declaration = (await parseSource("export const x = 1")).declarations[0]
+		assert.equal(isAClassExport(declaration), false)
 	})
 })

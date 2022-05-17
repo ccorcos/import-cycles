@@ -101,7 +101,11 @@ async function getImportCycles(
 
 
 export function isATypeExport(declaration: any){
-	return declaration.__proto__.constructor.name === "TypeAliasDeclaration" || declaration.__proto__.constructor.name === "InterfaceDeclaration"
+	return getDeclarationType(declaration) === "TypeAliasDeclaration" || getDeclarationType(declaration) === "InterfaceDeclaration";
+}
+
+export function isAClassExport(declaration: any){
+	return getDeclarationType(declaration) === "ClassDeclaration";
 }
 
 function getAllExportedDeclaration(declarations: Declaration[]): Declaration[] {
@@ -183,8 +187,7 @@ async function validateImports(
 			if (linkedImportDeclaration) {
 				// If this declaration is a class then we have to check how it's been used
 				if (
-					(linkedImportDeclaration as any).__proto__.constructor.name ===
-					"ClassDeclaration"
+					isAClassExport(linkedImportDeclaration)
 				) {
 					// check all declarated vars and all declarated vars inside functions
 					for (
