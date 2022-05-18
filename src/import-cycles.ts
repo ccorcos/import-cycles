@@ -143,7 +143,7 @@ async function validateImports(
 	const entryFileNormalizedPath = Path.normalize(entryFileSource.filePath);
 	const entryFileDirPath = entryFileNormalizedPath.substring(
 		0,
-		entryFileNormalizedPath.lastIndexOf("/")
+		entryFileNormalizedPath.lastIndexOf(Path.sep)
 	)
 	const validatedImports = []
 	for (let index = 0; index < entryFileParsed.imports.length; index++) {
