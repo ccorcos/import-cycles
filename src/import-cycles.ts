@@ -245,7 +245,7 @@ async function validateImports(
 	return validatedImports
 }
 
-export async function parseSource(source:string){
+export async function parseSource(source:string):Promise<ParsedFile>{
 	return await parser.parseSource(source)
 }
 
