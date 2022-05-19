@@ -136,6 +136,133 @@ function getDeclarationType(declaration: any): string {
 	return declaration.__proto__.constructor.name
 }
 
+function getResolvedPath(entryFileDirPath: string,libraryName:string): string | null {
+	let resolvedPath = resolvePath(
+		`${entryFileDirPath}/${libraryName}`
+	)
+	if (!fs.existsSync(resolvedPath)) {
+		if (fs.existsSync(resolvedPath + ".ts")) {
+			return `${resolvedPath}.ts`
+		} else if (fs.existsSync(resolvedPath + ".tsx")) {
+			return `${resolvedPath}.tsx`
+		} else {
+			return null  // ignore this import
+		}
+	}
+	return resolvedPath
+}
+
+function checkDeclaration(linkedImportDeclaration: Declaration, entryFiledeclarations: Declaration[], source: string): boolean {
+	
+			// If this declaration is a class then we have to check how it's been used
+			if (
+				isAClassExport(linkedImportDeclaration)
+			) {
+				// check all declarated vars and all declarated vars inside functions
+				for (
+					let entryFileDecIndex = 0;
+					entryFileDecIndex < entryFiledeclarations.length;
+					entryFileDecIndex++
+				) {
+					const entryFileDec = entryFiledeclarations[entryFileDecIndex]
+					if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
+						// For every variable we check if the given class is used on the right side of an assignment
+						// So if the class is used statically or being instantiated
+						if (
+							isAssign(
+								source,
+								entryFileDec,
+								linkedImportDeclaration.name
+							)
+						) {
+							return true
+						}
+					}
+					// If this is a function then we have to check for the function's variables
+					// Doing like this it also ignore if a class is used as a type in function's arguments
+					else if (
+						getDeclarationType(entryFileDec) === "FunctionDeclaration"
+					) {
+						for (
+							let funcDecIndex = 0;
+							funcDecIndex < (entryFileDec as any).variables.length;
+							funcDecIndex++
+						) {
+							const variable = (entryFileDec as any).variables[funcDecIndex]
+							if (
+								isAssign(
+									source,
+									variable,
+									linkedImportDeclaration.name
+								)
+							) {
+								return true
+							}
+						}
+					}
+				}
+				return false
+			} else {
+				// If this is not a class Declaration nor a typeAlias then validate the import without much checking
+				return true
+			}
+}
+
+function checkSpecifiers(specifiers: SymbolSpecifier[], importDeclarations:Declaration[],entryFiledeclarations:Declaration[],source:string ): boolean {
+	for (let index = 0; index < specifiers.length; index++) {
+		const specifier = specifiers[index]
+		// for the given specifier we search for his linked declaration inside the imported module
+		const linkedImportDeclaration = importDeclarations.find(
+			(declaration) => declaration.name === specifier.specifier
+		)
+		// If none exist then we skip this import
+		if (linkedImportDeclaration && checkDeclaration(linkedImportDeclaration,entryFiledeclarations,source)) {
+			return true
+		}
+
+	}
+	return false
+}
+
+function getSpecifiers(parserImport:ParserImport): SymbolSpecifier[]{
+	return (parserImport as any).specifiers as SymbolSpecifier[]
+}
+
+async function checkIfImportExistAtRuntime(fileSource:FileSource,parserImport:ParserImport,entrySource:string,entryFileParsed:ParsedFile):Promise<boolean>{
+	// extract data from the sources of this file
+	const parsedSource = await parseSource(fileSource.source)
+
+	// Get all usefull declarations from the file ( ignoring TypeAliasDeclaration )
+	const importDeclarations = getAllExportedDeclaration(
+		parsedSource.declarations
+	)
+
+	const specifiers = getSpecifiers(parserImport)
+	// for every specifier of the currently analysed import
+	// We will check how there are used, example if a class is used as a type
+	if(checkSpecifiers(specifiers, importDeclarations,entryFileParsed.declarations,entrySource)){
+		return true
+	}
+	else{
+		return false
+	}
+}
+
+async function validateImport(entryFileDirPath:string,entryFileParsed:ParsedFile,index:number,entrySource:string): Promise<boolean>{
+
+	const parserImport = entryFileParsed.imports[index]
+	// check if Path point to a file format we support
+	const resolvedPath = getResolvedPath(entryFileDirPath, parserImport.libraryName)
+	if(!resolvedPath){
+		return false
+	}
+	const fileSource = getSource(resolvedPath)
+	if(await checkIfImportExistAtRuntime(fileSource,parserImport,entrySource,entryFileParsed)){
+		return true
+	}
+	return false
+}
+
 async function validateImports(
 	entryFileSource: FileSource,
 	entryFileParsed: ParsedFile
@@ -147,99 +274,8 @@ async function validateImports(
 	)
 	const validatedImports = []
 	for (let index = 0; index < entryFileParsed.imports.length; index++) {
-		const parserImport = entryFileParsed.imports[index]
-		let resolvedPath = resolvePath(
-			`${entryFileDirPath}/${parserImport.libraryName}`
-		)
-		// check if resolvedPath point to a file format we support
-		if (!fs.existsSync(resolvedPath)) {
-			if (fs.existsSync(resolvedPath + ".ts")) {
-				resolvedPath = resolvePath(
-					`${entryFileDirPath}/${parserImport.libraryName}.ts`
-				)
-			} else if (fs.existsSync(resolvedPath + ".tsx")) {
-				resolvedPath = resolvePath(
-					`${entryFileDirPath}/${parserImport.libraryName}.tsx`
-				)
-			} else {
-				continue // ignore this import
-			}
-		}
-		// extract data from the sources of this file
-		const fileSource = getSource(resolvedPath)
-		const parsedSource = await parseSource(fileSource.source)
-
-		// Get all usefull declarations from the file ( ignoring TypeAliasDeclaration )
-		const importDeclarations = getAllExportedDeclaration(
-			parsedSource.declarations
-		)
-
-		const specifiers = (parserImport as any).specifiers as SymbolSpecifier[]
-		// for every specifier of the currently analysed import
-		// We will check how there are used, example if a class is used as a type
-		for (let index = 0; index < specifiers.length; index++) {
-			const specifier = specifiers[index]
-			// for the given specifier we search for his linked declaration inside the imported module
-			const linkedImportDeclaration = importDeclarations.find(
-				(declaration) => declaration.name === specifier.specifier
-			)
-			// If none exist then we skip this import
-			if (linkedImportDeclaration) {
-				// If this declaration is a class then we have to check how it's been used
-				if (
-					isAClassExport(linkedImportDeclaration)
-				) {
-					// check all declarated vars and all declarated vars inside functions
-					for (
-						let entryFileDecIndex = 0;
-						entryFileDecIndex < entryFileParsed.declarations.length;
-						entryFileDecIndex++
-					) {
-						const entryFileDec = entryFileParsed.declarations[entryFileDecIndex]
-						if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
-							// For every variable we check if the given class is used on the right side of an assignment
-							// So if the class is used statically or being instantiated
-							if (
-								isAssign(
-									entryFileSource.source,
-									entryFileDec,
-									linkedImportDeclaration.name
-								)
-							) {
-								validatedImports.push(parserImport)
-								break
-							}
-						}
-						// If this is a function then we have to check for the function's variables
-						// Doing like this it also ignore if a class is used as a type in function's arguments
-						else if (
-							getDeclarationType(entryFileDec) === "FunctionDeclaration"
-						) {
-							for (
-								let funcDecIndex = 0;
-								funcDecIndex < (entryFileDec as any).variables.length;
-								funcDecIndex++
-							) {
-								const variable = (entryFileDec as any).variables[funcDecIndex]
-								if (
-									isAssign(
-										entryFileSource.source,
-										variable,
-										linkedImportDeclaration.name
-									)
-								) {
-									validatedImports.push(parserImport)
-									break
-								}
-							}
-						}
-					}
-				} else {
-					// If this is not a class Declaration nor a typeAlias then validate the import without much checking
-					validatedImports.push(parserImport)
-					break
-				}
-			}
+		if(await validateImport(entryFileDirPath,entryFileParsed,index,entryFileSource.source)){
+			validatedImports.push(entryFileParsed.imports[index])
 		}
 	}
 	return validatedImports
