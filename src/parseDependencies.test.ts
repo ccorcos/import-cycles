@@ -1,11 +1,35 @@
 import assert from "assert"
 import { describe, it } from "mocha"
+import { checkIfImportExistAtRuntime, FileSource, parseSource } from "./import-cycles"
 
-// TODO: implement this.
-const parseDependencies: any = {}
+async function parseDependencies(entryPoint: string,files:Record<string, string>): Promise<Record<string, string[]>> {
+	const dependencies: Record<string, string[]> = {}
+	const entryPointFile = files[entryPoint]
+	const entryFileSource:FileSource = {
+		filePath: entryPoint,
+		source: entryPointFile,
+	}
+	const entryFileParsed = await parseSource(entryPointFile);
+	const imports = entryFileParsed.imports;
+	for (let i = 0; i < imports.length; i++) {
+		const parserImport = imports[i];
+		const importFileSource:FileSource = {
+			filePath: parserImport.libraryName,
+			source: files[parserImport.libraryName],
+		}
+		if(await checkIfImportExistAtRuntime(importFileSource,parserImport,entryFileSource.source,entryFileParsed)){
+			if(dependencies[entryPoint]){
+				dependencies[entryPoint].push(parserImport.libraryName)
+			}else{
+				dependencies[entryPoint] = [parserImport.libraryName];
+			}
+		}
+	}
+	return dependencies
+}
 
 describe("parseDependencies", () => {
-	it("Parses basic dependencies", () => {
+	it("Parses basic dependencies",async () => {
 		const files: Record<string, string> = {
 			"./a": `
 				import {b} from "./b"
@@ -17,13 +41,10 @@ describe("parseDependencies", () => {
 				export const b = 12
 			`,
 		}
-		const readFile = (filePath: string) => files[filePath]
-		assert.equal(parseDependencies("./a", readFile), {
-			["./a"]: ["./b"],
-		})
+		assert.deepEqual((await parseDependencies("./a", files)),{ ["./a"]: ["./b"]})
 	})
 
-	it("Ignores type imports", () => {
+	it("Ignores type imports",async () => {
 		const files: Record<string, string> = {
 			"./a": `
 				import {b} from "./b"
@@ -33,12 +54,11 @@ describe("parseDependencies", () => {
 				export type b = number
 			`,
 		}
-		const readFile = (filePath: string) => files[filePath]
 
-		assert.equal(parseDependencies("./a", readFile), {})
+		assert.deepEqual((await parseDependencies("./a", files)), {})
 	})
 
-	it("Ignores classes used as types", () => {
+	it("Ignores classes used as types",async () => {
 		const files: Record<string, string> = {
 			"./a": `
 				import {b} from "./b"
@@ -55,9 +75,8 @@ describe("parseDependencies", () => {
 				export class c {}
 			`,
 		}
-		const readFile = (filePath: string) => files[filePath]
 
-		assert.equal(parseDependencies("./a", readFile), {
+		assert.equal((await parseDependencies("./a", files)), {
 			["./a"]: ["./c"],
 		})
 	})

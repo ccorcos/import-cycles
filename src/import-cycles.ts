@@ -16,7 +16,7 @@ type Cycle = string[]
 
 type FileCycles = { filePath: string; cycle: Cycle[] }
 
-type FileSource = { filePath: string; source: string }
+export type FileSource = { filePath: string; source: string }
 
 function resolvePath(path: string): string {
 	if (!path.startsWith("/")) {
@@ -228,7 +228,7 @@ function getSpecifiers(parserImport:ParserImport): SymbolSpecifier[]{
 	return (parserImport as any).specifiers as SymbolSpecifier[]
 }
 
-async function checkIfImportExistAtRuntime(fileSource:FileSource,parserImport:ParserImport,entrySource:string,entryFileParsed:ParsedFile):Promise<boolean>{
+export async function checkIfImportExistAtRuntime(fileSource:FileSource,parserImport:ParserImport,entrySource:string,entryFileParsed:ParsedFile):Promise<boolean>{
 	// extract data from the sources of this file
 	const parsedSource = await parseSource(fileSource.source)
 
@@ -256,8 +256,8 @@ async function validateImport(entryFileDirPath:string,entryFileParsed:ParsedFile
 	if(!resolvedPath){
 		return false
 	}
-	const fileSource = getSource(resolvedPath)
-	if(await checkIfImportExistAtRuntime(fileSource,parserImport,entrySource,entryFileParsed)){
+	const importFileSource = getSource(resolvedPath)
+	if(await checkIfImportExistAtRuntime(importFileSource,parserImport,entrySource,entryFileParsed)){
 		return true
 	}
 	return false
