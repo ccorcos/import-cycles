@@ -262,10 +262,9 @@ function getSpecifiers(parserImport:ParserImport): SymbolSpecifier[]{
 	return (parserImport as any).specifiers as SymbolSpecifier[]
 }
 
-export async function checkIfImportExistAtRuntime(fileSource:FileSource,parserImport:ParserImport,entrySource:string,entryFileParsed:ParsedFile):Promise<boolean>{
+export async function checkIfImportExistAtRuntime(importFileSource:FileSource,parserImport:ParserImport,entrySource:string,entryFileParsed:ParsedFile):Promise<boolean>{
 	// extract data from the sources of this file
-	const parsedSource = await parseSource(fileSource.source)
-
+	const parsedSource = await parseSource(importFileSource.source)
 	// Get all usefull declarations from the file ( ignoring TypeAliasDeclaration )
 	const importDeclarations = getAllExportedDeclaration(
 		parsedSource.declarations
