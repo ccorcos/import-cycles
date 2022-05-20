@@ -181,6 +181,15 @@ function checkDeclaration(linkedImportDeclaration: Declaration, entryFiledeclara
 					entryFileDecIndex++
 				) {
 					const entryFileDec = entryFiledeclarations[entryFileDecIndex]
+					if (getDeclarationType(entryFileDec) === "ClassDeclaration") {
+						const classSource = source.substring(entryFileDec.start as number, entryFileDec.end);
+						if(classSource.includes("extends")){
+							const classExtends = classSource.split("extends")[1].split("{")[0].trim()
+							if(classExtends === linkedImportDeclaration.name){
+								return true
+							}
+						}
+					}
 					if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
 						// For every variable we check if the given class is used on the right side of an assignment
 						// So if the class is used statically or being instantiated

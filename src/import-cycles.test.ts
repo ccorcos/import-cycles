@@ -55,4 +55,12 @@ describe("Types cycle", async function () {
 		assert.equal(importCycles.length, 1)
 		assert.equal(importCycles[0].cycle.length, 1)
 	})
+
+	it("should have 1 cycle due to a class extension", async function () {
+		const importCycles = await detectImportCycles([
+			examplePath("types-cycles/extended-class-cycle/entry.ts"),
+		])
+		assert.equal(importCycles.length, 1)
+		assert.equal(importCycles[0].cycle.length, 1)
+	})
 })
