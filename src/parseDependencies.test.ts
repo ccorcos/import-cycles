@@ -76,7 +76,7 @@ describe("parseDependencies", () => {
 			`,
 		}
 
-		assert.equal((await parseDependencies("./a", files)), {
+		assert.deepEqual((await parseDependencies("./a", files)), {
 			["./a"]: ["./c"],
 		})
 	})

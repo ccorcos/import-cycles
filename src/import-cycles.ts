@@ -132,6 +132,22 @@ function isAssign(source: string, variable: any, className: string): boolean {
 	return false
 }
 
+function isReturned(returnStatement: string, linkedImportDeclarationName: string): boolean {
+	const returnStatementData = returnStatement.split("return")[1]
+	if (returnStatementData.includes(linkedImportDeclarationName)) {
+		return true
+	}
+	return false
+}
+
+function getReturnStatements(functionSource: string) {
+	// if the function isn't a void function then we have to check if the class is returned
+	// use a reguex to get all the return statements data from function source until next semi-colon or \r or \n
+	return  functionSource.match(
+		/return[\s\S]*?;*?\r*?\n/g
+	)
+}
+
 function getDeclarationType(declaration: any): string {
 	return declaration.__proto__.constructor.name
 }
@@ -197,6 +213,24 @@ function checkDeclaration(linkedImportDeclaration: Declaration, entryFiledeclara
 								)
 							) {
 								return true
+							}
+						}
+						
+						const functionSource = source.substring(
+							entryFileDec.start as number,
+							entryFileDec.end
+						)			
+						const returnStatements = getReturnStatements(functionSource)
+						if (returnStatements) {
+							for (
+								let returnStatementIndex = 0;
+								returnStatementIndex < returnStatements.length;
+								returnStatementIndex++
+							) {
+								const returnStatement = returnStatements[returnStatementIndex]
+								if(isReturned(returnStatement, linkedImportDeclaration.name)){
+									return true
+								}
 							}
 						}
 					}
@@ -346,3 +380,4 @@ if (process.env.VSCODE_DEBUG) {
 	}
 	debug_test()
 }
+
