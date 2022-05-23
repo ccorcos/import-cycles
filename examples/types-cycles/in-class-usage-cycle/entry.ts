@@ -9,7 +9,6 @@ export class a{
     myClass:typeClass;
     variable:typeClass= {field:""};
     constructor(){
-        this.myClass = new typeClass();
         const myVar:string ="d"
         const typeClassClone:typeClass = {field:""}
     }

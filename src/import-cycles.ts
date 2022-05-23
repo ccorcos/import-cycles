@@ -224,32 +224,32 @@ function checkDeclaration(linkedImportDeclaration: Declaration, entryFiledeclara
 								}
 							}
 						}			
-						// VERIFY METHODS
-						
-						
-						/*
-						const classDeclarationMethods = classDeclaration.properties
+						// check methods return statements and variable assignments
+						const classDeclarationMethods = classDeclaration.methods
 						for (
-							let classDecPropertyIndex = 0;
-							classDecPropertyIndex < classDeclarationProperties.length;
-							classDecPropertyIndex++
+							let classDecMethodIndex = 0;
+							classDecMethodIndex < classDeclarationMethods.length;
+							classDecMethodIndex++
 						) {
-							const classDecProperty = classDeclarationProperties[classDecPropertyIndex]
-							const propertySource = source.substring(classDecProperty.start as number, classDecProperty.end);
-							const returnStatements = getReturnStatements(propertySource)
-							if (returnStatements) {
-								for (
-									let returnStatementIndex = 0;
-									returnStatementIndex < returnStatements.length;
-									returnStatementIndex++
-								) {
+							const classDecMethod = classDeclarationMethods[classDecMethodIndex]
+							const methodSource = source.substring(classDecMethod.start as number, classDecMethod.end);
+							const returnStatements = getReturnStatements(methodSource)
+							if(returnStatements){
+								for (let returnStatementIndex = 0; returnStatementIndex < returnStatements.length; returnStatementIndex++) {
 									const returnStatement = returnStatements[returnStatementIndex]
-									if (isReturned(returnStatement, linkedImportDeclaration.name)) {
+									if(isReturned(returnStatement, linkedImportDeclaration.name)){
 										return true
 									}
 								}
 							}
-						}*/
+							const methodVariables = classDecMethod.variables;
+							for (let methodVarIndex = 0; methodVarIndex < methodVariables.length; methodVarIndex++) {
+								const methodVar = methodVariables[methodVarIndex]
+								if(isAssign(source, methodVar, linkedImportDeclaration.name)){
+									return true
+								}
+							}
+						}						
 					}
 					if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
 						// For every variable we check if the given class is used on the right side of an assignment
