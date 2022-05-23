@@ -1,6 +1,7 @@
 import fs from "fs"
 import Path from "path"
 import {
+	ClassDeclaration,
 	Declaration,
 	File as ParsedFile,
 	Import as ParserImport,
@@ -183,12 +184,72 @@ function checkDeclaration(linkedImportDeclaration: Declaration, entryFiledeclara
 					const entryFileDec = entryFiledeclarations[entryFileDecIndex]
 					if (getDeclarationType(entryFileDec) === "ClassDeclaration") {
 						const classSource = source.substring(entryFileDec.start as number, entryFileDec.end);
+						// check if the class is extended by the class that is being imported
 						if(classSource.includes("extends")){
 							const classExtends = classSource.split("extends")[1].split("{")[0].trim()
 							if(classExtends === linkedImportDeclaration.name){
 								return true
 							}
 						}
+						const classDeclaration:any = entryFileDec as ClassDeclaration
+						const classDeclarationProperties = classDeclaration.properties
+						for (
+							let classDecPropertyIndex = 0;
+							classDecPropertyIndex < classDeclarationProperties.length;
+							classDecPropertyIndex++
+						) {
+							const classDecProperty = classDeclarationProperties[classDecPropertyIndex]
+							const propertySource = source.substring(classDecProperty.start as number, classDecProperty.end);
+							if(propertySource.includes("=")){
+								const propertyAssign = propertySource.split("=")[1].split(";")[0].trim()
+								if(propertyAssign.includes(linkedImportDeclaration.name)){
+									return true
+								}
+							}
+							// check if property get assigned a value in the constructor
+							else{
+								const constructorSource = source.substring((entryFileDec as any).ctor.start as number, (entryFileDec as any).ctor.end);
+								let usageCount = constructorSource.match(new RegExp(`\\b${linkedImportDeclaration.name}\\b`, 'gi'))?.length;
+								if(usageCount){
+									const constructorVariables = (entryFileDec as any).ctor.variables;
+									for (let constructorVarIndex = 0; constructorVarIndex < constructorVariables.length; constructorVarIndex++) {
+										const constructorVar = constructorVariables[constructorVarIndex]
+										if(constructorVar.type === linkedImportDeclaration.name){
+											usageCount--;
+										}
+									}
+									if(usageCount){
+										return true
+									}
+								}
+							}
+						}			
+						// VERIFY METHODS
+						
+						
+						/*
+						const classDeclarationMethods = classDeclaration.properties
+						for (
+							let classDecPropertyIndex = 0;
+							classDecPropertyIndex < classDeclarationProperties.length;
+							classDecPropertyIndex++
+						) {
+							const classDecProperty = classDeclarationProperties[classDecPropertyIndex]
+							const propertySource = source.substring(classDecProperty.start as number, classDecProperty.end);
+							const returnStatements = getReturnStatements(propertySource)
+							if (returnStatements) {
+								for (
+									let returnStatementIndex = 0;
+									returnStatementIndex < returnStatements.length;
+									returnStatementIndex++
+								) {
+									const returnStatement = returnStatements[returnStatementIndex]
+									if (isReturned(returnStatement, linkedImportDeclaration.name)) {
+										return true
+									}
+								}
+							}
+						}*/
 					}
 					if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
 						// For every variable we check if the given class is used on the right side of an assignment
@@ -382,7 +443,7 @@ if (process.env.VSCODE_DEBUG) {
 	async function debug_test() {
 		analyzeImportCycles(
 			await detectImportCycles([
-				__dirname + "/../examples/types-cycles/nested-class-cycle/entry.ts",
+				__dirname + "/../examples/types-cycles/in-class-usage-cycle/entry.ts",
 			])
 		)
 	}
