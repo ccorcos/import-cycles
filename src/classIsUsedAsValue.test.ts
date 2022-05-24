@@ -61,4 +61,29 @@ describe("classIsUsedAsValue", () => {
 			true
 		)
 	})
+
+	it("Assign value in a class constructor",async () => {
+		assert.equal(await classIsUsedAsValue("export class x{}", prefix + "class a {field:x; constructor(){const d = new x()}}"), true)
+	})
+
+	it("Assign value in a class method",async () => {
+		assert.equal(await classIsUsedAsValue("export class x{}", prefix + "class a {method(){const d = new x()}}"), true)
+	})
+
+	it("Assign to a property in a class constructor",async () => {
+		assert.equal(await classIsUsedAsValue("export class x{}", prefix + "class a {field:x; constructor(){this.x = new x()}}"), true)
+	})
+
+	it("Used as a type for a property in a class",async () => {
+		assert.equal(await classIsUsedAsValue("export class x{}", prefix + "class a {field:x={};}"), false)
+		assert.equal(await classIsUsedAsValue("export class x{}", prefix + "class a {field:x; constructor(){this.field = {}; }}"), false)
+	})
+
+	it("Used as a type for a variable in a class method",async () => {
+		assert.equal(await classIsUsedAsValue("export class x{}", prefix + "class a {method(){const d:x = {};}}"), false)
+	})
+
+	it("Used as a type for a variable in a class constructor",async () => {
+		assert.equal(await classIsUsedAsValue("export class x{}", prefix + "class a {constructor(){const d:x = {}; }}"), false)
+	})
 })
