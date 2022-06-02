@@ -294,6 +294,43 @@ describe("Class cycles", async function () {
 		])
 		assert.equal(importCycles.length, 1)
 	})
+
+	const test8Files: Record<string, string> = {
+		"entry.ts": `
+		import { Human } from './file2';
+		export function hello(name:string):string{
+			return "hello " + name
+		}
+		class SuperHuman{
+			constructor(name:string, age:number){
+				this.name = name
+				this.age = age
+			}
+			createNewHuman(){
+				return new Human(this.name, this.age) // Human class is used as a value
+			}
+		}
+	`,
+		"file2.ts": `
+	import {hello} from './entry' // an import cycle should be detected here, if import isn't ignored
+	export class Human{
+		name:string
+		age:number
+		constructor(name:string, age:number){
+			this.name = name
+			this.age = age
+		}
+	}
+	`,
+	}
+	const test8FilesFolder = "test8ClassCycles"
+	createFiles(test8FilesFolder, test8Files)
+	it("should detect 1 cycle since Human class is used as a value in a method inside a class constructor", async function () {
+		const importCycles = await detectImportCycles([
+			getEntryFilePath(test8FilesFolder),
+		])
+		assert.equal(importCycles.length, 1)
+	})
 })
 
 describe("Multiple cycle in multiple files", async function () {
