@@ -74,10 +74,10 @@ describe("Class cycles", async function () {
 	const test1Files: Record<string, string> = {
 		"entry.ts": `
 		import { Human } from './file2';
-		export const myHuman = new Human();
+		export const myHuman = new Human(); // use the human class as a value
 	`,
 		"file2.ts": `
-	import {myHuman} from './entry'
+	import {myHuman} from './entry' // an import cycle should be detected here, if import isn't ignored
 	export class Human{
 		name:string
 		age:number
@@ -100,10 +100,10 @@ describe("Class cycles", async function () {
 	const test2Files: Record<string, string> = {
 		"entry.ts": `
 		import { Human } from './file2';
-		export const myHuman:Human = {name:"john", age:20}
+		export const myHuman:Human = {name:"john", age:20} // use the human class as a type
 	`,
 		"file2.ts": `
-	import {myHuman} from './entry'
+	import {myHuman} from './entry' // an import cycle should be detected here, if import isn't ignored
 	export class Human{
 		name:string
 		age:number
@@ -128,11 +128,11 @@ describe("Class cycles", async function () {
 		"entry.ts": `
 		import { Human } from './file2';
 		export function createHuman(name:string, age:number):Human{
-			return new Human(name, age)
+			return new Human(name, age) // use the human class as a value inside a function
 		}
 	`,
 		"file2.ts": `
-	import {createHuman} from './entry'
+	import {createHuman} from './entry' // an import cycle should be detected here, if import isn't ignored
 	export class Human{
 		name:string
 		age:number
@@ -158,14 +158,14 @@ describe("Class cycles", async function () {
 		export function hello(name:string):string{
 			return "hello " + name
 		}
-		class SuperHuman extends Human{
+		class SuperHuman extends Human{ // Human class is used as a class extention
 			constructor(name:string, age:number){
 				super(name, age)
 			}
 		}
 	`,
 		"file2.ts": `
-	import {hello} from './entry'
+	import {hello} from './entry' // an import cycle should be detected here, if import isn't ignored
 	export class Human{
 		name:string
 		age:number
@@ -197,7 +197,7 @@ describe("Multiple cycle", async function () {
 		export const myHuman = new Human();
 	`,
 		"file2.ts": `
-	import {myHuman} from './entry'
+	import {myHuman} from './entry'  // an import cycle should be detected here, if import isn't ignored
 	export class Human{
 		name:string
 		age:number
@@ -208,11 +208,11 @@ describe("Multiple cycle", async function () {
 	}
 	`,
 		"file3.ts": `
-	import {myHuman} from './entry'
+	import {myHuman} from './entry'  // an import cycle should be detected here, if import isn't ignored
 	export const dogSound = "woof"
 	`,
 	"entry2.ts": `
-	import { Human } from './file2';
+	import { Human } from './file2';  // an import cycle should be detected here, if import isn't ignored
 	export const myHuman = new Human();
 `,
 	}
