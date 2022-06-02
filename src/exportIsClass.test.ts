@@ -2,7 +2,7 @@ import assert from "assert"
 import { describe, it } from "mocha"
 import { isAClassExport, parseSource } from "./import-cycles"
 
-describe("exportIsCLass", () => {
+describe("exportIsClass", () => {
 	it("type", async () => {
 		const declaration = (await parseSource("export type x = number"))
 			.declarations[0]

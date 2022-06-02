@@ -8,3 +8,6 @@ tsconfig.tsbuildinfo
 tests-out
 
 .vscode
+
+
+temp
