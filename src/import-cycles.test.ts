@@ -2,46 +2,32 @@ import assert from "assert"
 import { describe, it } from "mocha"
 import * as path from "path"
 import { detectImportCycles } from "./import-cycles"
-import fs from "fs";
-function examplePath(subPath: string) {
-	return path.join(__dirname, "../examples", subPath)
-}
+import fs from "fs"
 
-describe("Multiple cycle", async function () {
-	const importCycles = await detectImportCycles([
-		examplePath("multiple-cycles/entry.ts"),
-		examplePath("multiple-cycles/entry2.ts"),
-	])
-	it("should have 2 files that have cycles", async function () {
-		assert.equal(importCycles.length, 2)
-	})
-	it("entry.ts should have 3 cycles", async function () {
-		assert.equal(importCycles[0].cycle.length, 3)
-	})
-	it("entry2.ts should have 1 cycles", async function () {
-		assert.equal(importCycles[1].cycle.length, 1)
-	})
-})
-
-function getTempFolderPath():string{
+function getTempFolderPath(): string {
 	return path.join(__dirname, "../temp")
 }
 
-function setupTempFolder(folderPath:string){
-	if(fs.existsSync(folderPath)){
-		fs.rmdirSync(folderPath, {recursive: true})
+function setupTempFolder(folderPath: string) {
+	if (fs.existsSync(folderPath)) {
+		fs.rmdirSync(folderPath, { recursive: true })
 	}
 	fs.mkdirSync(folderPath)
 }
 
-function createFiles(files:Record<string,string>){
+function createFiles(subFolderName: string, files: Record<string, string>) {
 	const folderPath = getTempFolderPath()
-	setupTempFolder(folderPath)
-	for(const fileName in files){
-		const filePath = path.join(folderPath, fileName)
-		fs.writeFileSync(filePath, files[fileName])
+	const subFolderPath = path.join(folderPath, subFolderName)
+	fs.mkdirSync(subFolderPath)
+	for (const [fileName, content] of Object.entries(files)) {
+		fs.writeFileSync(path.join(subFolderPath, fileName), content)
 	}
 }
+
+function getEntryFilePath(subFolderName: string,entryName:string = "entry.ts"): string {
+	return path.join(getTempFolderPath(), subFolderName, entryName)
+}
+setupTempFolder(getTempFolderPath())
 
 describe("Files without cycles", async function () {
 	const test1Files: Record<string, string> = {
@@ -49,50 +35,200 @@ describe("Files without cycles", async function () {
 		import { a } from './file2';
 		import fs from "fs"; // only to be sure that it do not detect node internal modules
 	`,
-	"file2.ts": `
+		"file2.ts": `
 		import fs from "fs"; // only to be sure that it do not detect node internal modules
 
 		export function a(){}
-	`
+	`,
 	}
-	createFiles(test1Files)
-	it("should have 0 cycles", async function () {
+	const test1FilesFolder = "test1WithoutCycles"
+	createFiles(test1FilesFolder, test1Files)
+	it("should detect 0 cycles since there aren't ones", async function () {
 		const importCycles = await detectImportCycles([
-			getTempFolderPath() + "/entry.ts",
+			getEntryFilePath(test1FilesFolder),
+		])
+		assert.equal(importCycles.length, 0)
+	})
+	const test2Files: Record<string, string> = {
+		"entry.ts": `
+		import { numbers } from './file2';
+
+		const myVar:numbers = [1,2,3]
+		
+	`,
+		"file2.ts": `
+		export type numbers = number[]
+	`,
+	}
+	const test2FilesFolder = "test2WithoutCycles"
+	createFiles(test2FilesFolder, test2Files)
+	it("should detect 0 cycles since there aren't ones beside a type one that we should ignore", async function () {
+		const importCycles = await detectImportCycles([
+			getEntryFilePath(test2FilesFolder),
 		])
 		assert.equal(importCycles.length, 0)
 	})
 })
 
-describe("Types cycle", async function () {
-	it("should have 0 cycles", async function () {
+describe("Class cycles", async function () {
+	const test1Files: Record<string, string> = {
+		"entry.ts": `
+		import { Human } from './file2';
+		export const myHuman = new Human();
+	`,
+		"file2.ts": `
+	import {myHuman} from './entry'
+	export class Human{
+		name:string
+		age:number
+		constructor(name:string, age:number){
+			this.name = name
+			this.age = age
+		}
+	}
+	`,
+	}
+	const test1FilesFolder = "test1ClassCycles"
+	createFiles(test1FilesFolder, test1Files)
+	it("should detect 1 cycles since Human class is used to create an object", async function () {
 		const importCycles = await detectImportCycles([
-			examplePath("types-cycles/no-cycles/entry.ts"),
+			getEntryFilePath(test1FilesFolder),
+		])
+		assert.equal(importCycles.length, 1)
+	})
+
+	const test2Files: Record<string, string> = {
+		"entry.ts": `
+		import { Human } from './file2';
+		export const myHuman:Human = {name:"john", age:20}
+	`,
+		"file2.ts": `
+	import {myHuman} from './entry'
+	export class Human{
+		name:string
+		age:number
+		constructor(name:string, age:number){
+			this.name = name
+			this.age = age
+		}
+	}
+	`,
+	}
+
+	const test2FilesFolder = "test2ClassCycles"
+	createFiles(test2FilesFolder, test2Files)
+	it("should detect 0 cycles since Human class is used as a type", async function () {
+		const importCycles = await detectImportCycles([
+			getEntryFilePath(test2FilesFolder),
 		])
 		assert.equal(importCycles.length, 0)
 	})
 
-	it("should have 1 cycle due to a class declaration", async function () {
+	const test3Files: Record<string, string> = {
+		"entry.ts": `
+		import { Human } from './file2';
+		export function createHuman(name:string, age:number):Human{
+			return new Human(name, age)
+		}
+	`,
+		"file2.ts": `
+	import {createHuman} from './entry'
+	export class Human{
+		name:string
+		age:number
+		constructor(name:string, age:number){
+			this.name = name
+			this.age = age
+		}
+	}
+	`,
+	}
+	const test3FilesFolder = "test3ClassCycles"
+	createFiles(test3FilesFolder, test3Files)
+	it("should detect 1 cycles since Human class is used to create an object inside a function", async function () {
 		const importCycles = await detectImportCycles([
-			examplePath("types-cycles/class-cycle/entry.ts"),
+			getEntryFilePath(test3FilesFolder),
 		])
 		assert.equal(importCycles.length, 1)
-		assert.equal(importCycles[0].cycle.length, 1)
 	})
 
-	it("should have 1 cycle due to a class declaration", async function () {
+	const test4Files: Record<string, string> = {
+		"entry.ts": `
+		import { Human } from './file2';
+		export function hello(name:string):string{
+			return "hello " + name
+		}
+		class SuperHuman extends Human{
+			constructor(name:string, age:number){
+				super(name, age)
+			}
+		}
+	`,
+		"file2.ts": `
+	import {hello} from './entry'
+	export class Human{
+		name:string
+		age:number
+		constructor(name:string, age:number){
+			this.name = name
+			this.age = age
+		}
+	}
+	`,
+	}
+	const test4FilesFolder = "test4ClassCycles"
+	createFiles(test4FilesFolder, test4Files)
+	it("should detect 1 cycles since Human class is used as a class extension", async function () {
 		const importCycles = await detectImportCycles([
-			examplePath("types-cycles/nested-class-cycle/entry.ts"),
+			getEntryFilePath(test4FilesFolder),
 		])
 		assert.equal(importCycles.length, 1)
-		assert.equal(importCycles[0].cycle.length, 1)
 	})
+})
 
-	it("should have 1 cycle due to a class extension", async function () {
-		const importCycles = await detectImportCycles([
-			examplePath("types-cycles/extended-class-cycle/entry.ts"),
-		])
-		assert.equal(importCycles.length, 1)
-		assert.equal(importCycles[0].cycle.length, 1)
+
+
+describe("Multiple cycle", async function () {
+
+	const test1Files: Record<string, string> = {
+		"entry.ts": `
+		import { Human } from './file2';
+		import { dogSound } from './file3';
+		export const myHuman = new Human();
+	`,
+		"file2.ts": `
+	import {myHuman} from './entry'
+	export class Human{
+		name:string
+		age:number
+		constructor(name:string, age:number){
+			this.name = name
+			this.age = age
+		}
+	}
+	`,
+		"file3.ts": `
+	import {myHuman} from './entry'
+	export const dogSound = "woof"
+	`,
+	"entry2.ts": `
+	import { Human } from './file2';
+	export const myHuman = new Human();
+`,
+	}
+	const test1FilesFolder = "test1MultipleCycles"
+	createFiles(test1FilesFolder, test1Files)
+	const importCycles = await detectImportCycles([
+		getEntryFilePath(test1FilesFolder),
+		getEntryFilePath(test1FilesFolder,"entry2.ts"),
+	])
+	it("should have 2 files that have cycles", async function () {
+		assert.equal(importCycles.length, 2)
+	})
+	it("entry.ts should have 2 cycles", async function () {
+		assert.equal(importCycles[0].cycle.length, 2)
+	})
+	it("entry2.ts should have 1 cycles", async function () {
+		assert.equal(importCycles[1].cycle.length, 1)
 	})
 })
