@@ -24,7 +24,10 @@ function createFiles(subFolderName: string, files: Record<string, string>) {
 	}
 }
 
-function getEntryFilePath(subFolderName: string,entryName:string = "entry.ts"): string {
+function getEntryFilePath(
+	subFolderName: string,
+	entryName: string = "entry.ts"
+): string {
 	return path.join(getTempFolderPath(), subFolderName, entryName)
 }
 setupTempFolder(getTempFolderPath())
@@ -184,12 +187,116 @@ describe("Class cycles", async function () {
 		])
 		assert.equal(importCycles.length, 1)
 	})
+
+	const test5Files: Record<string, string> = {
+		"entry.ts": `
+		import { Human } from './file2';
+		export function hello(name:string):string{
+			return "hello " + name
+		}
+		class SuperHuman{
+			constructor(name:string, age:number){
+				this.name = name
+				this.age = age
+				this.human = new Human(name, age)
+			}
+		}
+	`,
+		"file2.ts": `
+	import {hello} from './entry' // an import cycle should be detected here, if import isn't ignored
+	export class Human{
+		name:string
+		age:number
+		constructor(name:string, age:number){
+			this.name = name
+			this.age = age
+		}
+	}
+	`,
+	}
+	const test5FilesFolder = "test5ClassCycles"
+	createFiles(test5FilesFolder, test5Files)
+	it("should detect 1 cycles since Human class is used as a value in a property inside a class constructor", async function () {
+		const importCycles = await detectImportCycles([
+			getEntryFilePath(test5FilesFolder),
+		])
+		assert.equal(importCycles.length, 1)
+	})
+
+	const test6Files: Record<string, string> = {
+		"entry.ts": `
+		import { Human } from './file2';
+		export function hello(name:string):string{
+			return "hello " + name
+		}
+		class SuperHuman{
+			human:Human // Human class is used as a type
+			constructor(name:string, age:number){
+				this.name = name
+				this.age = age
+				this.human =  {name:name, age:age}
+				const human:Human = {name:name, age:age} // Human class is used as a type
+			}
+		}
+	`,
+		"file2.ts": `
+	import {hello} from './entry' // an import cycle should be detected here, if import isn't ignored
+	export class Human{
+		name:string
+		age:number
+		constructor(name:string, age:number){
+			this.name = name
+			this.age = age
+		}
+	}
+	`,
+	}
+	const test6FilesFolder = "test6ClassCycles"
+	createFiles(test6FilesFolder, test6Files)
+	it("should detect 0 cycles since Human class is used as a type multiple time inside a class constructor", async function () {
+		const importCycles = await detectImportCycles([
+			getEntryFilePath(test6FilesFolder),
+		])
+		assert.equal(importCycles.length, 0)
+	})
+
+	const test7Files: Record<string, string> = {
+		"entry.ts": `
+		import { Human } from './file2';
+		export function hello(name:string):string{
+			return "hello " + name
+		}
+		class SuperHuman{
+			constructor(name:string, age:number){
+				this.name = name
+				this.age = age
+				const human:Human = new Human(name, age) // Human class is used as a value
+			}
+		}
+	`,
+		"file2.ts": `
+	import {hello} from './entry' // an import cycle should be detected here, if import isn't ignored
+	export class Human{
+		name:string
+		age:number
+		constructor(name:string, age:number){
+			this.name = name
+			this.age = age
+		}
+	}
+	`,
+	}
+	const test7FilesFolder = "test7ClassCycles"
+	createFiles(test7FilesFolder, test7Files)
+	it("should detect 1 cycle since Human class is used as a value in a var inside a class constructor", async function () {
+		const importCycles = await detectImportCycles([
+			getEntryFilePath(test7FilesFolder),
+		])
+		assert.equal(importCycles.length, 1)
+	})
 })
 
-
-
-describe("Multiple cycle", async function () {
-
+describe("Multiple cycle in multiple files", async function () {
 	const test1Files: Record<string, string> = {
 		"entry.ts": `
 		import { Human } from './file2';
@@ -211,7 +318,7 @@ describe("Multiple cycle", async function () {
 	import {myHuman} from './entry'  // an import cycle should be detected here, if import isn't ignored
 	export const dogSound = "woof"
 	`,
-	"entry2.ts": `
+		"entry2.ts": `
 	import { Human } from './file2';  // an import cycle should be detected here, if import isn't ignored
 	export const myHuman = new Human();
 `,
@@ -220,7 +327,7 @@ describe("Multiple cycle", async function () {
 	createFiles(test1FilesFolder, test1Files)
 	const importCycles = await detectImportCycles([
 		getEntryFilePath(test1FilesFolder),
-		getEntryFilePath(test1FilesFolder,"entry2.ts"),
+		getEntryFilePath(test1FilesFolder, "entry2.ts"),
 	])
 	it("should have 2 files that have cycles", async function () {
 		assert.equal(importCycles.length, 2)
