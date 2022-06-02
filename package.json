@@ -11,7 +11,8 @@
 		"build": "tsc",
 		"watch": "tsc --watch",
 		"test": "mocha -r ts-node/register './src/**/*.test.ts' --verbose",
-		"release": "npm run clean && npm run build && npm publish"
+		"release": "npm run clean && npm run build && npm publish",
+		"prettier": "npx prettier --write ./src"
 	},
 	"keywords": [],
 	"author": "Chet Corcos <ccorcos@gmail.com>",

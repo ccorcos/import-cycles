@@ -1,27 +1,41 @@
 import assert from "assert"
 import { describe, it } from "mocha"
-import { checkIfImportExistAtRuntime, FileSource, parseSource } from "./import-cycles"
+import {
+	checkIfImportExistAtRuntime,
+	FileSource,
+	parseSource,
+} from "./import-cycles"
 
-async function parseDependencies(entryPoint: string,files:Record<string, string>): Promise<Record<string, string[]>> {
+async function parseDependencies(
+	entryPoint: string,
+	files: Record<string, string>
+): Promise<Record<string, string[]>> {
 	const dependencies: Record<string, string[]> = {}
 	const entryPointFile = files[entryPoint]
-	const entryFileSource:FileSource = {
+	const entryFileSource: FileSource = {
 		filePath: entryPoint,
 		source: entryPointFile,
 	}
-	const entryFileParsed = await parseSource(entryPointFile);
-	const imports = entryFileParsed.imports;
+	const entryFileParsed = await parseSource(entryPointFile)
+	const imports = entryFileParsed.imports
 	for (let i = 0; i < imports.length; i++) {
-		const parserImport = imports[i];
-		const importFileSource:FileSource = {
+		const parserImport = imports[i]
+		const importFileSource: FileSource = {
 			filePath: parserImport.libraryName,
 			source: files[parserImport.libraryName],
 		}
-		if(await checkIfImportExistAtRuntime(importFileSource,parserImport,entryFileSource.source,entryFileParsed)){
-			if(dependencies[entryPoint]){
+		if (
+			await checkIfImportExistAtRuntime(
+				importFileSource,
+				parserImport,
+				entryFileSource.source,
+				entryFileParsed
+			)
+		) {
+			if (dependencies[entryPoint]) {
 				dependencies[entryPoint].push(parserImport.libraryName)
-			}else{
-				dependencies[entryPoint] = [parserImport.libraryName];
+			} else {
+				dependencies[entryPoint] = [parserImport.libraryName]
 			}
 		}
 	}
@@ -29,7 +43,7 @@ async function parseDependencies(entryPoint: string,files:Record<string, string>
 }
 
 describe("parseDependencies", () => {
-	it("Parses basic dependencies",async () => {
+	it("Parses basic dependencies", async () => {
 		const files: Record<string, string> = {
 			"./a": `
 				import {b} from "./b"
@@ -41,10 +55,12 @@ describe("parseDependencies", () => {
 				export const b = 12
 			`,
 		}
-		assert.deepEqual((await parseDependencies("./a", files)),{ ["./a"]: ["./b"]})
+		assert.deepEqual(await parseDependencies("./a", files), {
+			["./a"]: ["./b"],
+		})
 	})
 
-	it("Ignores type imports",async () => {
+	it("Ignores type imports", async () => {
 		const files: Record<string, string> = {
 			"./a": `
 				import {b} from "./b"
@@ -55,10 +71,10 @@ describe("parseDependencies", () => {
 			`,
 		}
 
-		assert.deepEqual((await parseDependencies("./a", files)), {})
+		assert.deepEqual(await parseDependencies("./a", files), {})
 	})
 
-	it("Ignores classes used as types",async () => {
+	it("Ignores classes used as types", async () => {
 		const files: Record<string, string> = {
 			"./a": `
 				import {b} from "./b"
@@ -76,7 +92,7 @@ describe("parseDependencies", () => {
 			`,
 		}
 
-		assert.deepEqual((await parseDependencies("./a", files)), {
+		assert.deepEqual(await parseDependencies("./a", files), {
 			["./a"]: ["./c"],
 		})
 	})

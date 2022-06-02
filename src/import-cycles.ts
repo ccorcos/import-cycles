@@ -100,23 +100,22 @@ async function getImportCycles(
 	return filesCycles
 }
 
-
-export function isATypeExport(declaration: any){
-	return getDeclarationType(declaration) === "TypeAliasDeclaration" || getDeclarationType(declaration) === "InterfaceDeclaration";
+export function isATypeExport(declaration: any) {
+	return (
+		getDeclarationType(declaration) === "TypeAliasDeclaration" ||
+		getDeclarationType(declaration) === "InterfaceDeclaration"
+	)
 }
 
-export function isAClassExport(declaration: any){
-	return getDeclarationType(declaration) === "ClassDeclaration";
+export function isAClassExport(declaration: any) {
+	return getDeclarationType(declaration) === "ClassDeclaration"
 }
 
 function getAllExportedDeclaration(declarations: Declaration[]): Declaration[] {
 	const exportedDeclarations: Declaration[] = []
 	for (let index = 0; index < declarations.length; index++) {
 		const declaration: any = declarations[index]
-		if (
-			declaration.isExported && 
-			!isATypeExport(declaration)
-		) {
+		if (declaration.isExported && !isATypeExport(declaration)) {
 			exportedDeclarations.push(declaration)
 		}
 	}
@@ -133,7 +132,10 @@ function isAssign(source: string, variable: any, className: string): boolean {
 	return false
 }
 
-function isReturned(returnStatement: string, linkedImportDeclarationName: string): boolean {
+function isReturned(
+	returnStatement: string,
+	linkedImportDeclarationName: string
+): boolean {
 	const returnStatementData = returnStatement.split("return")[1]
 	if (returnStatementData.includes(linkedImportDeclarationName)) {
 		return true
@@ -144,175 +146,199 @@ function isReturned(returnStatement: string, linkedImportDeclarationName: string
 function getReturnStatements(functionSource: string) {
 	// if the function isn't a void function then we have to check if the class is returned
 	// use a reguex to get all the return statements data from function source until next semi-colon or \r or \n
-	return  functionSource.match(
-		/return[\s\S]*?;*?\r*?\n/g
-	)
+	return functionSource.match(/return[\s\S]*?;*?\r*?\n/g)
 }
 
 function getDeclarationType(declaration: any): string {
 	return declaration.__proto__.constructor.name
 }
 
-function getResolvedPath(entryFileDirPath: string,libraryName:string): string | null {
-	let resolvedPath = resolvePath(
-		`${entryFileDirPath}/${libraryName}`
-	)
+function getResolvedPath(
+	entryFileDirPath: string,
+	libraryName: string
+): string | null {
+	let resolvedPath = resolvePath(`${entryFileDirPath}/${libraryName}`)
 	if (!fs.existsSync(resolvedPath)) {
 		if (fs.existsSync(resolvedPath + ".ts")) {
 			return `${resolvedPath}.ts`
 		} else if (fs.existsSync(resolvedPath + ".tsx")) {
 			return `${resolvedPath}.tsx`
 		} else {
-			return null  // ignore this import
+			return null // ignore this import
 		}
 	}
 	return resolvedPath
 }
 
-function checkDeclaration(linkedImportDeclaration: Declaration, entryFiledeclarations: Declaration[], source: string): boolean {
-	
-			// If this declaration is a class then we have to check how it's been used
-			if (
-				isAClassExport(linkedImportDeclaration)
-			) {
-				// check all declarated vars and all declarated vars inside functions
-				for (
-					let entryFileDecIndex = 0;
-					entryFileDecIndex < entryFiledeclarations.length;
-					entryFileDecIndex++
-				) {
-					const entryFileDec = entryFiledeclarations[entryFileDecIndex]
-					if (getDeclarationType(entryFileDec) === "ClassDeclaration") {
-						const classSource = source.substring(entryFileDec.start as number, entryFileDec.end);
-						// check if the class is extended by the class that is being imported
-						if(classSource.includes("extends")){
-							const classExtends = classSource.split("extends")[1].split("{")[0].trim()
-							if(classExtends === linkedImportDeclaration.name){
-								return true
-							}
-						}
-						const classDeclaration:any = entryFileDec as ClassDeclaration
-						const classDeclarationProperties = classDeclaration.properties
-						for (
-							let classDecPropertyIndex = 0;
-							classDecPropertyIndex < classDeclarationProperties.length;
-							classDecPropertyIndex++
-						) {
-							const classDecProperty = classDeclarationProperties[classDecPropertyIndex]
-							const propertySource = source.substring(classDecProperty.start as number, classDecProperty.end);
-							if(propertySource.includes("=")){
-								const propertyAssign = propertySource.split("=")[1].split(";")[0].trim()
-								if(propertyAssign.includes(linkedImportDeclaration.name)){
-									return true
-								}
-							}
-							// check if property get assigned a value in the constructor
-							else{
-								const constructorSource = source.substring((entryFileDec as any).ctor.start as number, (entryFileDec as any).ctor.end);
-								let usageCount = constructorSource.match(new RegExp(`\\b${linkedImportDeclaration.name}\\b`, 'gi'))?.length;
-								if(usageCount){
-									const constructorVariables = (entryFileDec as any).ctor.variables;
-									for (let constructorVarIndex = 0; constructorVarIndex < constructorVariables.length; constructorVarIndex++) {
-										const constructorVar = constructorVariables[constructorVarIndex]
-										if(constructorVar.type === linkedImportDeclaration.name){
-											usageCount--;
-										}
-									}
-									if(usageCount){
-										return true
-									}
-								}
-							}
-						}			
-						// check methods return statements and variable assignments
-						const classDeclarationMethods = classDeclaration.methods
-						for (
-							let classDecMethodIndex = 0;
-							classDecMethodIndex < classDeclarationMethods.length;
-							classDecMethodIndex++
-						) {
-							const classDecMethod = classDeclarationMethods[classDecMethodIndex]
-							const methodSource = source.substring(classDecMethod.start as number, classDecMethod.end);
-							const returnStatements = getReturnStatements(methodSource)
-							if(returnStatements){
-								for (let returnStatementIndex = 0; returnStatementIndex < returnStatements.length; returnStatementIndex++) {
-									const returnStatement = returnStatements[returnStatementIndex]
-									if(isReturned(returnStatement, linkedImportDeclaration.name)){
-										return true
-									}
-								}
-							}
-							const methodVariables = classDecMethod.variables;
-							for (let methodVarIndex = 0; methodVarIndex < methodVariables.length; methodVarIndex++) {
-								const methodVar = methodVariables[methodVarIndex]
-								if(isAssign(source, methodVar, linkedImportDeclaration.name)){
-									return true
-								}
-							}
-						}						
+function checkDeclaration(
+	linkedImportDeclaration: Declaration,
+	entryFiledeclarations: Declaration[],
+	source: string
+): boolean {
+	// If this declaration is a class then we have to check how it's been used
+	if (isAClassExport(linkedImportDeclaration)) {
+		// check all declarated vars and all declarated vars inside functions
+		for (
+			let entryFileDecIndex = 0;
+			entryFileDecIndex < entryFiledeclarations.length;
+			entryFileDecIndex++
+		) {
+			const entryFileDec = entryFiledeclarations[entryFileDecIndex]
+			if (getDeclarationType(entryFileDec) === "ClassDeclaration") {
+				const classSource = source.substring(
+					entryFileDec.start as number,
+					entryFileDec.end
+				)
+				// check if the class is extended by the class that is being imported
+				if (classSource.includes("extends")) {
+					const classExtends = classSource
+						.split("extends")[1]
+						.split("{")[0]
+						.trim()
+					if (classExtends === linkedImportDeclaration.name) {
+						return true
 					}
-					if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
-						// For every variable we check if the given class is used on the right side of an assignment
-						// So if the class is used statically or being instantiated
-						if (
-							isAssign(
-								source,
-								entryFileDec,
-								linkedImportDeclaration.name
-							)
-						) {
+				}
+				const classDeclaration: any = entryFileDec as ClassDeclaration
+				const classDeclarationProperties = classDeclaration.properties
+				for (
+					let classDecPropertyIndex = 0;
+					classDecPropertyIndex < classDeclarationProperties.length;
+					classDecPropertyIndex++
+				) {
+					const classDecProperty =
+						classDeclarationProperties[classDecPropertyIndex]
+					const propertySource = source.substring(
+						classDecProperty.start as number,
+						classDecProperty.end
+					)
+					if (propertySource.includes("=")) {
+						const propertyAssign = propertySource
+							.split("=")[1]
+							.split(";")[0]
+							.trim()
+						if (propertyAssign.includes(linkedImportDeclaration.name)) {
 							return true
 						}
 					}
-					// If this is a function then we have to check for the function's variables
-					// Doing like this it also ignore if a class is used as a type in function's arguments
-					else if (
-						getDeclarationType(entryFileDec) === "FunctionDeclaration"
-					) {
-						for (
-							let funcDecIndex = 0;
-							funcDecIndex < (entryFileDec as any).variables.length;
-							funcDecIndex++
-						) {
-							const variable = (entryFileDec as any).variables[funcDecIndex]
-							if (
-								isAssign(
-									source,
-									variable,
-									linkedImportDeclaration.name
-								)
-							) {
-								return true
-							}
-						}
-						
-						const functionSource = source.substring(
-							entryFileDec.start as number,
-							entryFileDec.end
-						)			
-						const returnStatements = getReturnStatements(functionSource)
-						if (returnStatements) {
+					// check if property get assigned a value in the constructor
+					else {
+						const constructorSource = source.substring(
+							(entryFileDec as any).ctor.start as number,
+							(entryFileDec as any).ctor.end
+						)
+						let usageCount = constructorSource.match(
+							new RegExp(`\\b${linkedImportDeclaration.name}\\b`, "gi")
+						)?.length
+						if (usageCount) {
+							const constructorVariables = (entryFileDec as any).ctor.variables
 							for (
-								let returnStatementIndex = 0;
-								returnStatementIndex < returnStatements.length;
-								returnStatementIndex++
+								let constructorVarIndex = 0;
+								constructorVarIndex < constructorVariables.length;
+								constructorVarIndex++
 							) {
-								const returnStatement = returnStatements[returnStatementIndex]
-								if(isReturned(returnStatement, linkedImportDeclaration.name)){
-									return true
+								const constructorVar = constructorVariables[constructorVarIndex]
+								if (constructorVar.type === linkedImportDeclaration.name) {
+									usageCount--
 								}
+							}
+							if (usageCount) {
+								return true
 							}
 						}
 					}
 				}
-				return false
-			} else {
-				// If this is not a class Declaration nor a typeAlias then validate the import without much checking
-				return true
+				// check methods return statements and variable assignments
+				const classDeclarationMethods = classDeclaration.methods
+				for (
+					let classDecMethodIndex = 0;
+					classDecMethodIndex < classDeclarationMethods.length;
+					classDecMethodIndex++
+				) {
+					const classDecMethod = classDeclarationMethods[classDecMethodIndex]
+					const methodSource = source.substring(
+						classDecMethod.start as number,
+						classDecMethod.end
+					)
+					const returnStatements = getReturnStatements(methodSource)
+					if (returnStatements) {
+						for (
+							let returnStatementIndex = 0;
+							returnStatementIndex < returnStatements.length;
+							returnStatementIndex++
+						) {
+							const returnStatement = returnStatements[returnStatementIndex]
+							if (isReturned(returnStatement, linkedImportDeclaration.name)) {
+								return true
+							}
+						}
+					}
+					const methodVariables = classDecMethod.variables
+					for (
+						let methodVarIndex = 0;
+						methodVarIndex < methodVariables.length;
+						methodVarIndex++
+					) {
+						const methodVar = methodVariables[methodVarIndex]
+						if (isAssign(source, methodVar, linkedImportDeclaration.name)) {
+							return true
+						}
+					}
+				}
 			}
+			if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
+				// For every variable we check if the given class is used on the right side of an assignment
+				// So if the class is used statically or being instantiated
+				if (isAssign(source, entryFileDec, linkedImportDeclaration.name)) {
+					return true
+				}
+			}
+			// If this is a function then we have to check for the function's variables
+			// Doing like this it also ignore if a class is used as a type in function's arguments
+			else if (getDeclarationType(entryFileDec) === "FunctionDeclaration") {
+				for (
+					let funcDecIndex = 0;
+					funcDecIndex < (entryFileDec as any).variables.length;
+					funcDecIndex++
+				) {
+					const variable = (entryFileDec as any).variables[funcDecIndex]
+					if (isAssign(source, variable, linkedImportDeclaration.name)) {
+						return true
+					}
+				}
+
+				const functionSource = source.substring(
+					entryFileDec.start as number,
+					entryFileDec.end
+				)
+				const returnStatements = getReturnStatements(functionSource)
+				if (returnStatements) {
+					for (
+						let returnStatementIndex = 0;
+						returnStatementIndex < returnStatements.length;
+						returnStatementIndex++
+					) {
+						const returnStatement = returnStatements[returnStatementIndex]
+						if (isReturned(returnStatement, linkedImportDeclaration.name)) {
+							return true
+						}
+					}
+				}
+			}
+		}
+		return false
+	} else {
+		// If this is not a class Declaration nor a typeAlias then validate the import without much checking
+		return true
+	}
 }
 
-function checkSpecifiers(specifiers: SymbolSpecifier[], importDeclarations:Declaration[],entryFiledeclarations:Declaration[],source:string ): boolean {
+function checkSpecifiers(
+	specifiers: SymbolSpecifier[],
+	importDeclarations: Declaration[],
+	entryFiledeclarations: Declaration[],
+	source: string
+): boolean {
 	for (let index = 0; index < specifiers.length; index++) {
 		const specifier = specifiers[index]
 		// for the given specifier we search for his linked declaration inside the imported module
@@ -320,19 +346,26 @@ function checkSpecifiers(specifiers: SymbolSpecifier[], importDeclarations:Decla
 			(declaration) => declaration.name === specifier.specifier
 		)
 		// If none exist then we skip this import
-		if (linkedImportDeclaration && checkDeclaration(linkedImportDeclaration,entryFiledeclarations,source)) {
+		if (
+			linkedImportDeclaration &&
+			checkDeclaration(linkedImportDeclaration, entryFiledeclarations, source)
+		) {
 			return true
 		}
-
 	}
 	return false
 }
 
-function getSpecifiers(parserImport:ParserImport): SymbolSpecifier[]{
+function getSpecifiers(parserImport: ParserImport): SymbolSpecifier[] {
 	return (parserImport as any).specifiers as SymbolSpecifier[]
 }
 
-export async function checkIfImportExistAtRuntime(importFileSource:FileSource,parserImport:ParserImport,entrySource:string,entryFileParsed:ParsedFile):Promise<boolean>{
+export async function checkIfImportExistAtRuntime(
+	importFileSource: FileSource,
+	parserImport: ParserImport,
+	entrySource: string,
+	entryFileParsed: ParsedFile
+): Promise<boolean> {
 	// extract data from the sources of this file
 	const parsedSource = await parseSource(importFileSource.source)
 	// Get all usefull declarations from the file ( ignoring TypeAliasDeclaration )
@@ -343,24 +376,44 @@ export async function checkIfImportExistAtRuntime(importFileSource:FileSource,pa
 	const specifiers = getSpecifiers(parserImport)
 	// for every specifier of the currently analysed import
 	// We will check how there are used, example if a class is used as a type
-	if(checkSpecifiers(specifiers, importDeclarations,entryFileParsed.declarations,entrySource)){
+	if (
+		checkSpecifiers(
+			specifiers,
+			importDeclarations,
+			entryFileParsed.declarations,
+			entrySource
+		)
+	) {
 		return true
-	}
-	else{
+	} else {
 		return false
 	}
 }
 
-async function validateImport(entryFileDirPath:string,entryFileParsed:ParsedFile,index:number,entrySource:string): Promise<boolean>{
-
+async function validateImport(
+	entryFileDirPath: string,
+	entryFileParsed: ParsedFile,
+	index: number,
+	entrySource: string
+): Promise<boolean> {
 	const parserImport = entryFileParsed.imports[index]
 	// check if Path point to a file format we support
-	const resolvedPath = getResolvedPath(entryFileDirPath, parserImport.libraryName)
-	if(!resolvedPath){
+	const resolvedPath = getResolvedPath(
+		entryFileDirPath,
+		parserImport.libraryName
+	)
+	if (!resolvedPath) {
 		return false
 	}
 	const importFileSource = getSource(resolvedPath)
-	if(await checkIfImportExistAtRuntime(importFileSource,parserImport,entrySource,entryFileParsed)){
+	if (
+		await checkIfImportExistAtRuntime(
+			importFileSource,
+			parserImport,
+			entrySource,
+			entryFileParsed
+		)
+	) {
 		return true
 	}
 	return false
@@ -370,21 +423,28 @@ async function validateImports(
 	entryFileSource: FileSource,
 	entryFileParsed: ParsedFile
 ): Promise<ParserImport[]> {
-	const entryFileNormalizedPath = Path.normalize(entryFileSource.filePath);
+	const entryFileNormalizedPath = Path.normalize(entryFileSource.filePath)
 	const entryFileDirPath = entryFileNormalizedPath.substring(
 		0,
 		entryFileNormalizedPath.lastIndexOf(Path.sep)
 	)
 	const validatedImports = []
 	for (let index = 0; index < entryFileParsed.imports.length; index++) {
-		if(await validateImport(entryFileDirPath,entryFileParsed,index,entryFileSource.source)){
+		if (
+			await validateImport(
+				entryFileDirPath,
+				entryFileParsed,
+				index,
+				entryFileSource.source
+			)
+		) {
 			validatedImports.push(entryFileParsed.imports[index])
 		}
 	}
 	return validatedImports
 }
 
-export async function parseSource(source:string):Promise<ParsedFile>{
+export async function parseSource(source: string): Promise<ParsedFile> {
 	return await parser.parseSource(source)
 }
 
@@ -449,4 +509,3 @@ if (process.env.VSCODE_DEBUG) {
 	}
 	debug_test()
 }
-

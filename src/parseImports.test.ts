@@ -3,37 +3,40 @@ import { describe, it } from "mocha"
 import { parseSource } from "./import-cycles"
 
 interface formattedImport {
-	default?:boolean,
-	named?:string[],
-	path:string,
-	type?:boolean,
-	star?:boolean
+	default?: boolean
+	named?: string[]
+	path: string
+	type?: boolean
+	star?: boolean
 }
-const parseImports = async (source:string) => {	
+const parseImports = async (source: string) => {
 	const parsedSource = await parseSource(source)
-	const formattedImports:formattedImport[] = []
+	const formattedImports: formattedImport[] = []
 	parsedSource.imports.forEach((parsedImport: any) => {
-		const formattedImport:formattedImport = {path:parsedImport.libraryName}
+		const formattedImport: formattedImport = { path: parsedImport.libraryName }
 		if (parsedImport.defaultAlias) {
 			formattedImport.default = true
 		}
-		if(source.substring(parsedImport.start,parsedImport.end).includes("*")){
+		if (source.substring(parsedImport.start, parsedImport.end).includes("*")) {
 			formattedImport.star = true
-		}
-		else{
-			if(source.substring(parsedImport.start,parsedImport.end).includes("type")){
+		} else {
+			if (
+				source.substring(parsedImport.start, parsedImport.end).includes("type")
+			) {
 				formattedImport.type = true
 			}
-			if(parsedImport.specifiers?.length > 0) {
-				formattedImport.named = parsedImport.specifiers.map((specifier:any) => {
-					return specifier.specifier
-				})
+			if (parsedImport.specifiers?.length > 0) {
+				formattedImport.named = parsedImport.specifiers.map(
+					(specifier: any) => {
+						return specifier.specifier
+					}
+				)
 			}
 		}
 		if (parsedImport.type) formattedImport.type = true
 
-		formattedImports.push(formattedImport);
-	});
+		formattedImports.push(formattedImport)
+	})
 	return formattedImports
 }
 

@@ -4,11 +4,13 @@ import { isAClassExport, parseSource } from "./import-cycles"
 
 describe("exportIsCLass", () => {
 	it("type", async () => {
-		const declaration = (await parseSource("export type x = number")).declarations[0]
+		const declaration = (await parseSource("export type x = number"))
+			.declarations[0]
 		assert.equal(isAClassExport(declaration), false)
 	})
 	it("interface", async () => {
-		const declaration = (await parseSource("export interface x {}")).declarations[0]
+		const declaration = (await parseSource("export interface x {}"))
+			.declarations[0]
 		assert.equal(isAClassExport(declaration), false)
 	})
 	it("class", async () => {
@@ -16,7 +18,8 @@ describe("exportIsCLass", () => {
 		assert.equal(isAClassExport(declaration), true)
 	})
 	it("var", async () => {
-		const declaration = (await parseSource("export const x = 1")).declarations[0]
+		const declaration = (await parseSource("export const x = 1"))
+			.declarations[0]
 		assert.equal(isAClassExport(declaration), false)
 	})
 })
