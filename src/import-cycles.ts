@@ -170,6 +170,41 @@ function getResolvedPath(
 	return resolvedPath
 }
 
+function checkConstructorDeclaration(entryFileDec: Declaration,source:string,linkedImportDeclaration:Declaration): boolean {
+	if((entryFileDec as any).ctor){
+		const constructorSource = removeAllCommentsFromTsFile(source.substring(
+			(entryFileDec as any).ctor.start as number,
+			(entryFileDec as any).ctor.end
+		));
+		let usageCount = constructorSource.match(
+			new RegExp(`\\b${linkedImportDeclaration.name}\\b`, "g")
+		)?.length
+		if (usageCount) {
+			const constructorVariables = (entryFileDec as any).ctor.variables
+			for (
+				let constructorVarIndex = 0;
+				constructorVarIndex < constructorVariables.length;
+				constructorVarIndex++
+			) {
+				const constructorVar = constructorVariables[constructorVarIndex]
+				if (constructorVar.type === linkedImportDeclaration.name) {
+					usageCount--
+				}
+				if(constructorVar.name === linkedImportDeclaration.name){
+					usageCount--
+				}
+			}
+			if(constructorSource.includes("this."+linkedImportDeclaration.name)){
+				usageCount--
+			}
+			if (usageCount) {
+				return true
+			}
+		}
+	return false
+	}
+	return false
+}
 function checkDeclaration(
 	linkedImportDeclaration: Declaration,
 	entryFiledeclarations: Declaration[],
@@ -221,32 +256,10 @@ function checkDeclaration(
 							return true
 						}
 					}
-					// check if property get assigned a value in the constructor
-					else {
-						const constructorSource = source.substring(
-							(entryFileDec as any).ctor.start as number,
-							(entryFileDec as any).ctor.end
-						)
-						let usageCount = constructorSource.match(
-							new RegExp(`\\b${linkedImportDeclaration.name}\\b`, "gi")
-						)?.length
-						if (usageCount) {
-							const constructorVariables = (entryFileDec as any).ctor.variables
-							for (
-								let constructorVarIndex = 0;
-								constructorVarIndex < constructorVariables.length;
-								constructorVarIndex++
-							) {
-								const constructorVar = constructorVariables[constructorVarIndex]
-								if (constructorVar.type === linkedImportDeclaration.name) {
-									usageCount--
-								}
-							}
-							if (usageCount) {
-								return true
-							}
-						}
-					}
+				}
+				// check if declarations/properties get assigned the linkedImportDeclaration in the constructor
+				if(checkConstructorDeclaration(entryFileDec,source,linkedImportDeclaration)){
+					return true // validate the import
 				}
 				// check methods return statements and variable assignments
 				const classDeclarationMethods = classDeclaration.methods
@@ -286,7 +299,7 @@ function checkDeclaration(
 					}
 				}
 			}
-			if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
+			else if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
 				// For every variable we check if the given class is used on the right side of an assignment
 				// So if the class is used statically or being instantiated
 				if (isAssign(source, entryFileDec, linkedImportDeclaration.name)) {
@@ -444,6 +457,33 @@ async function validateImports(
 	return validatedImports
 }
 
+function removeAllCommentsFromTsFile(source: string): string {
+	let lastChar ="";
+	let newSource = "";
+	let stopWriting = false;
+	for (let index = 0; index < source.length; index++) {
+		const char = source[index];
+		if (char === "/" && lastChar === "/") {
+			stopWriting = true;
+			newSource = newSource.substring(0, newSource.length - 2);
+		}
+		if (char === "*" && lastChar === "/") {
+			stopWriting = true;
+		}
+		if (char === "/" && lastChar === "*") {
+			stopWriting = false;
+		}
+		if (char === "\r" || char === "\n") {
+			stopWriting = false;
+		}
+		if (!stopWriting) {
+			newSource += char;
+		}
+		lastChar = char;
+	}
+	return newSource;
+}
+
 export async function parseSource(source: string): Promise<ParsedFile> {
 	return await parser.parseSource(source)
 }
@@ -497,15 +537,4 @@ export function analyzeImportCycles(fileCycles: FileCycles[]): void {
 		}
 		console.log(`\n ==== \n`)
 	})
-}
-
-if (process.env.VSCODE_DEBUG) {
-	async function debug_test() {
-		analyzeImportCycles(
-			await detectImportCycles([
-				__dirname + "/../examples/types-cycles/in-class-usage-cycle/entry.ts",
-			])
-		)
-	}
-	debug_test()
 }
