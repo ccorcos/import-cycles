@@ -170,12 +170,18 @@ function getResolvedPath(
 	return resolvedPath
 }
 
-function checkConstructorDeclaration(entryFileDec: Declaration,source:string,linkedImportDeclaration:Declaration): boolean {
-	if((entryFileDec as any).ctor){
-		const constructorSource = removeAllCommentsFromTsFile(source.substring(
-			(entryFileDec as any).ctor.start as number,
-			(entryFileDec as any).ctor.end
-		));
+function checkConstructorDeclaration(
+	entryFileDec: Declaration,
+	source: string,
+	linkedImportDeclaration: Declaration
+): boolean {
+	if ((entryFileDec as any).ctor) {
+		const constructorSource = removeAllCommentsFromTsFile(
+			source.substring(
+				(entryFileDec as any).ctor.start as number,
+				(entryFileDec as any).ctor.end
+			)
+		)
 		let usageCount = constructorSource.match(
 			new RegExp(`\\b${linkedImportDeclaration.name}\\b`, "g")
 		)?.length
@@ -190,18 +196,18 @@ function checkConstructorDeclaration(entryFileDec: Declaration,source:string,lin
 				if (constructorVar.type === linkedImportDeclaration.name) {
 					usageCount--
 				}
-				if(constructorVar.name === linkedImportDeclaration.name){
+				if (constructorVar.name === linkedImportDeclaration.name) {
 					usageCount--
 				}
 			}
-			if(constructorSource.includes("this."+linkedImportDeclaration.name)){
+			if (constructorSource.includes("this." + linkedImportDeclaration.name)) {
 				usageCount--
 			}
 			if (usageCount) {
 				return true
 			}
 		}
-	return false
+		return false
 	}
 	return false
 }
@@ -258,7 +264,13 @@ function checkDeclaration(
 					}
 				}
 				// check if declarations/properties get assigned the linkedImportDeclaration in the constructor
-				if(checkConstructorDeclaration(entryFileDec,source,linkedImportDeclaration)){
+				if (
+					checkConstructorDeclaration(
+						entryFileDec,
+						source,
+						linkedImportDeclaration
+					)
+				) {
 					return true // validate the import
 				}
 				// check methods return statements and variable assignments
@@ -298,8 +310,7 @@ function checkDeclaration(
 						}
 					}
 				}
-			}
-			else if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
+			} else if (getDeclarationType(entryFileDec) === "VariableDeclaration") {
 				// For every variable we check if the given class is used on the right side of an assignment
 				// So if the class is used statically or being instantiated
 				if (isAssign(source, entryFileDec, linkedImportDeclaration.name)) {
@@ -458,30 +469,30 @@ async function validateImports(
 }
 
 function removeAllCommentsFromTsFile(source: string): string {
-	let lastChar ="";
-	let newSource = "";
-	let stopWriting = false;
+	let lastChar = ""
+	let newSource = ""
+	let stopWriting = false
 	for (let index = 0; index < source.length; index++) {
-		const char = source[index];
+		const char = source[index]
 		if (char === "/" && lastChar === "/") {
-			stopWriting = true;
-			newSource = newSource.substring(0, newSource.length - 2);
+			stopWriting = true
+			newSource = newSource.substring(0, newSource.length - 2)
 		}
 		if (char === "*" && lastChar === "/") {
-			stopWriting = true;
+			stopWriting = true
 		}
 		if (char === "/" && lastChar === "*") {
-			stopWriting = false;
+			stopWriting = false
 		}
 		if (char === "\r" || char === "\n") {
-			stopWriting = false;
+			stopWriting = false
 		}
 		if (!stopWriting) {
-			newSource += char;
+			newSource += char
 		}
-		lastChar = char;
+		lastChar = char
 	}
-	return newSource;
+	return newSource
 }
 
 export async function parseSource(source: string): Promise<ParsedFile> {
