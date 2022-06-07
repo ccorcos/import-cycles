@@ -541,7 +541,7 @@ export function analyzeImportCycles(fileCycles: FileCycles[]): void {
 		console.log(`\n ==== \n`)
 		for (let index = 0; index < fileCycle.cycle.length; index++) {
 			const cycle = fileCycle.cycle[index]
-			console.log(`${cycle.join(" -> ")}`)
+			console.log(`${cycle.join("\n")}`)
 			if (index < fileCycle.cycle.length - 1) {
 				console.log(`\n ----- \n`)
 			}
