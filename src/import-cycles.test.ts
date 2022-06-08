@@ -10,7 +10,7 @@ function getTempFolderPath(): string {
 
 function setupTempFolder(folderPath: string) {
 	if (fs.existsSync(folderPath)) {
-		fs.rmdirSync(folderPath, { recursive: true })
+		fs.rmSync(folderPath, { recursive: true })
 	}
 	fs.mkdirSync(folderPath)
 }
