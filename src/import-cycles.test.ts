@@ -363,17 +363,18 @@ describe("Multiple cycle in multiple files", async function () {
 	}
 	const test1FilesFolder = "test1MultipleCycles"
 	createFiles(test1FilesFolder, test1Files)
-	const importCycles = await detectImportCycles([
+	const importCycles = detectImportCycles([
 		getEntryFilePath(test1FilesFolder),
 		getEntryFilePath(test1FilesFolder, "entry2.ts"),
 	])
 	it("should have 2 files that have cycles", async function () {
-		assert.equal(importCycles.length, 2)
+		
+		assert.equal((await importCycles).length, 2)
 	})
 	it("entry.ts should have 2 cycles", async function () {
-		assert.equal(importCycles[0].cycle.length, 2)
+		assert.equal((await importCycles)[0].cycle.length, 2)
 	})
 	it("entry2.ts should have 1 cycles", async function () {
-		assert.equal(importCycles[1].cycle.length, 1)
+		assert.equal((await importCycles)[1].cycle.length, 1)
 	})
 })
