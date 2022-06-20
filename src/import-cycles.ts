@@ -25,6 +25,10 @@ function resolvePath(path: string): string {
 	}
 	return path
 }
+
+function isATsFile(filePath: string): boolean {
+	return filePath.endsWith(".ts") || filePath.endsWith(".tsx")
+}
 function getResolvedPaths(filesPaths: string[]) {
 	return filesPaths.map((filePath) => resolvePath(filePath))
 }
@@ -158,7 +162,7 @@ function getResolvedPath(
 	libraryName: string
 ): string | null {
 	let resolvedPath = resolvePath(`${entryFileDirPath}/${libraryName}`)
-	if (!fs.existsSync(resolvedPath)) {
+	if (!fs.existsSync(resolvedPath) || !isATsFile(resolvedPath)) {
 		if (fs.existsSync(resolvedPath + ".ts")) {
 			return `${resolvedPath}.ts`
 		} else if (fs.existsSync(resolvedPath + ".tsx")) {
