@@ -592,7 +592,7 @@ async function fillDependencyMap(entryPaths: string[],dependencyMapPointer:Depen
 			cycleDetected: false
 		}
 		dependencyMapPointer.set(entryPath,dependency)
-		if(dependencies){
+		if(dependencies.length){
 			if(arrayContains(dependents,entryPath)){
 				dependency.cycleDetected = true
 				dependencyMapPointer.set(entryPath,dependency)
