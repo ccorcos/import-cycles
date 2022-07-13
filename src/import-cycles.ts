@@ -84,23 +84,39 @@ async function checkImportCycles(
 		}
 	}
 }
+
+function readDependency(
+	fileCycle: FileCycles,
+	dependency:Dependency
+) {	
+	dependency.dependencies.forEach((dependency:Dependency,dependencyPath:string) => {
+		const dependencyMap = dependency.dependencies;
+		const dependencyPaths = dependencyMap.keys();
+		if(dependency.cycleDetected){
+			fileCycle.cycle.push([fileCycle.filePath,...dependency.dependents])
+			return;
+		}
+		for (const dependencyPath of dependencyPaths) {	
+			const dependency = dependencyMap.get(dependencyPath);
+			if(dependency){
+				
+				readDependency(fileCycle,dependency);
+			}
+		}
+	});
+
+}
 async function getImportCycles(
-	entryFilesImports: FileImports[]
+	dependencyMap: DependencyMap
 ): Promise<FileCycles[]> {
 	const filesCycles: FileCycles[] = []
-	for (let index = 0; index < entryFilesImports.length; index++) {
-		const fileCycles: FileCycles = {
-			filePath: entryFilesImports[index].filePath,
-			cycle: [],
+	dependencyMap.forEach((dependency:Dependency,dependencyPath:string) => {
+		const fileCycle: FileCycles = { filePath: dependencyPath, cycle: [] }
+		readDependency(fileCycle,dependency)
+		if(fileCycle.cycle.length > 0){
+			filesCycles.push(fileCycle)
 		}
-		const file = entryFilesImports[index]
-		const cyclePath: string[] = []
-		cyclePath.push(file.filePath)
-		await checkImportCycles(file.imports, cyclePath, fileCycles)
-		if (fileCycles.cycle.length > 0) {
-			filesCycles.push(fileCycles)
-		}
-	}
+	});
 	return filesCycles
 }
 
@@ -524,14 +540,83 @@ export async function getImports(file: FileSource): Promise<Imports> {
 	return imports
 }
 
-export async function detectImportCycles(entryPaths: string[]) {
-	const filesPathsResolved = getResolvedPaths(entryPaths)
+async function getSubDependencyMap(entryPath:string):Promise<DependencyMap>{
+	const entrySource = getSource(entryPath)
+	const imports = await getFilesImports([entrySource])
+	const importsArray = imports[0].imports
+	const subDependencyMap:DependencyMap = new Map();
+	for (let index = 0; index < importsArray.length; index++) {
+		const element = importsArray[index];
+		subDependencyMap.set(element, new Map() as any);
+	}
+	return subDependencyMap
+}
 
-	// get a list of sources from filesPaths
-	const sources = getSources(filesPathsResolved)
-	const imports = await getFilesImports(sources)
+function checkIfContains(array:string[],element:string):boolean{
+	for (let index = 0; index < array.length; index++) {
+		const elementArray = array[index];
+		if(elementArray === element){
+			return true
+		}
+	}
+	return false
+}
+
+function getAllKeys(map:Map<string,any>):string[]{
+	const keys:string[] = []
+	map.forEach((value,key)=>{
+		keys.push(key)
+	}
+	)
+	return keys
+}
+
+function arrayContains(array:string[],element:string):boolean{
+	for (let index = 0; index < array.length; index++) {
+		const elementArray = array[index];
+		if(elementArray === element){
+			return true
+		}
+	}
+	return false
+}
+
+async function fillDependencyMap(entryPaths: string[],dependencyMapPointer:DependencyMap,dependents:string[] = []):Promise<void>{
+	for (let index = 0; index < entryPaths.length; index++) {
+		const entryPath = entryPaths[index]
+		const subDependencyMap = await getSubDependencyMap(entryPath)
+		const dependencies = getAllKeys(subDependencyMap)
+		const dependency: Dependency = {
+			dependencies: subDependencyMap,
+			dependents,
+			cycleDetected: false
+		}
+		dependencyMapPointer.set(entryPath,dependency)
+		if(dependencies){
+			if(arrayContains(dependents,entryPath)){
+				dependency.cycleDetected = true
+				dependencyMapPointer.set(entryPath,dependency)
+				continue
+			}
+			const newDependents = [...dependents,...dependencies] as string[]
+			await fillDependencyMap(dependencies,dependencyMapPointer.get(entryPath)?.dependencies as unknown as DependencyMap,newDependents)
+		}
+	}
+}
+
+interface Dependency{
+	dependencies:DependencyMap
+	dependents:string[]
+	cycleDetected:boolean
+}
+type DependencyMap = Map<string,Dependency>
+
+export async function detectImportCycles(entryPaths: string[]) {
+	// const filesPathsResolved = getResolvedPaths(entryPaths)
+	const dependencyMap:DependencyMap = new Map()
+	await fillDependencyMap(entryPaths,dependencyMap)
 	// get a list of all import cycles
-	const cycles = await getImportCycles(imports)
+	const cycles = await getImportCycles(dependencyMap)
 	// return the list of cycles
 	return cycles
 }
