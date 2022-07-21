@@ -29,18 +29,9 @@ function resolvePath(path: string): string {
 function isATsFile(filePath: string): boolean {
 	return filePath.endsWith(".ts") || filePath.endsWith(".tsx")
 }
-function getResolvedPaths(filesPaths: string[]) {
-	return filesPaths.map((filePath) => resolvePath(filePath))
-}
 
 function getSource(filePath: string): FileSource {
 	return { filePath: filePath, source: fs.readFileSync(filePath, "utf8") }
-}
-
-function getSources(filesPaths: string[]): FileSource[] {
-	return filesPaths.map((filePath) => {
-		return getSource(filePath)
-	})
 }
 
 const parser = new TypescriptParser()
@@ -58,49 +49,28 @@ async function getFilesImports(files: FileSource[]): Promise<FileImports[]> {
 	return filesImports
 }
 
-async function checkImportCycles(
-	entryFileImports: Imports,
-	cyclePath: string[],
-	fileCycles: FileCycles
-): Promise<void> {
-	for (let index = 0; index < entryFileImports.length; index++) {
-		const entryFileImport = entryFileImports[index]
-		if (cyclePath.includes(entryFileImport)) {
-			return
-		}
-		const entryFileImportSource = getSource(entryFileImport)
-		const imports = await getImports(entryFileImportSource)
-		let cycleDetected = false
-		for (let index = 0; index < imports.length; index++) {
-			const element = imports[index]
-			if (cyclePath.includes(element) || element === entryFileImport) {
-				fileCycles.cycle.push([...cyclePath, entryFileImport, element])
-				cycleDetected = true
-			}
-		}
-		if (!cycleDetected) {
-			cyclePath.push(entryFileImport)
-			await checkImportCycles(imports, cyclePath, fileCycles)
-		}
-	}
-}
 
 function readDependency(
 	fileCycle: FileCycles,
-	dependency:Dependency
+	dependency:Dependency,
+	currentDependencyPath:string
 ) {	
+	if(dependency.cycleDetected.length){
+		for (let index = 0; index < dependency.cycleDetected.length; index++) {
+			const cycle = dependency.cycleDetected[index];
+			fileCycle.cycle.push([...dependency.dependents,currentDependencyPath,cycle])
+		}
+		return;
+	}
 	dependency.dependencies.forEach((dependency:Dependency,dependencyPath:string) => {
 		const dependencyMap = dependency.dependencies;
-		const dependencyPaths = dependencyMap.keys();
-		if(dependency.cycleDetected){
-			fileCycle.cycle.push([fileCycle.filePath,...dependency.dependents])
-			return;
-		}
-		for (const dependencyPath of dependencyPaths) {	
-			const dependency = dependencyMap.get(dependencyPath);
-			if(dependency){
-				
-				readDependency(fileCycle,dependency);
+		if(dependencyMap){
+			const dependencyPaths = dependencyMap.keys();
+			for (const dependencyPath of dependencyPaths) {	
+				const dependency = dependencyMap.get(dependencyPath);
+				if(dependency){
+					readDependency(fileCycle,dependency,dependencyPath);
+				}
 			}
 		}
 	});
@@ -111,8 +81,8 @@ async function getImportCycles(
 ): Promise<FileCycles[]> {
 	const filesCycles: FileCycles[] = []
 	dependencyMap.forEach((dependency:Dependency,dependencyPath:string) => {
-		const fileCycle: FileCycles = { filePath: dependencyPath, cycle: [] }
-		readDependency(fileCycle,dependency)
+		const fileCycle: FileCycles = { filePath: resolvePath(dependencyPath), cycle: [] }
+		readDependency(fileCycle,dependency,dependencyPath);
 		if(fileCycle.cycle.length > 0){
 			filesCycles.push(fileCycle)
 		}
@@ -586,20 +556,32 @@ async function fillDependencyMap(entryPaths: string[],dependencyMapPointer:Depen
 		const entryPath = entryPaths[index]
 		const subDependencyMap = await getSubDependencyMap(entryPath)
 		const dependencies = getAllKeys(subDependencyMap)
-		const dependency: Dependency = {
+		const currentDependency: Dependency = {
 			dependencies: subDependencyMap,
 			dependents,
-			cycleDetected: false
+			cycleDetected: []
 		}
-		dependencyMapPointer.set(entryPath,dependency)
+		dependencyMapPointer.set(entryPath,currentDependency)
 		if(dependencies.length){
-			if(arrayContains(dependents,entryPath)){
-				dependency.cycleDetected = true
-				dependencyMapPointer.set(entryPath,dependency)
-				continue
+			for (let index = 0; index < dependencies.length; index++) {
+				const dependency = dependencies[index];
+				if(arrayContains(dependents,dependency)){
+					currentDependency.cycleDetected.push(dependency)
+				}
 			}
-			const newDependents = [...dependents,...dependencies] as string[]
-			await fillDependencyMap(dependencies,dependencyMapPointer.get(entryPath)?.dependencies as unknown as DependencyMap,newDependents)
+			dependencyMapPointer.set(entryPath,currentDependency)
+			if(currentDependency.cycleDetected.length){
+				// remove all cycles from dependencies
+				for (let index = 0; index < currentDependency.cycleDetected.length; index++) {
+					const cycle = currentDependency.cycleDetected[index];
+					const indexOfCycle = dependencies.indexOf(cycle)
+					if(indexOfCycle !== -1){
+						dependencies.splice(indexOfCycle,1)
+					}
+				}
+			}
+				const newDependents = [...dependents,...entryPaths] as string[]
+				await fillDependencyMap(dependencies,dependencyMapPointer.get(entryPath)?.dependencies as unknown as DependencyMap,newDependents)
 		}
 	}
 }
@@ -607,7 +589,7 @@ async function fillDependencyMap(entryPaths: string[],dependencyMapPointer:Depen
 interface Dependency{
 	dependencies:DependencyMap
 	dependents:string[]
-	cycleDetected:boolean
+	cycleDetected:string[]
 }
 type DependencyMap = Map<string,Dependency>
 
@@ -637,4 +619,16 @@ export function analyzeImportCycles(fileCycles: FileCycles[]): void {
 		}
 		console.log(`\n ==== \n`)
 	})
+}
+
+if (process.env.VSCODE_DEBUG) {
+	async function debug_test() {
+		analyzeImportCycles(
+			await detectImportCycles([
+				__dirname + "/../examples/types-cycles/test1MultipleCycles/entry.ts",
+				__dirname + "/../examples/types-cycles/test1MultipleCycles/entry2.ts",
+			])
+		)
+	}
+	debug_test()
 }
