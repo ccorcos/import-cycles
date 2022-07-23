@@ -1,11 +1,11 @@
 import assert from "assert"
 import { describe, it } from "mocha"
 import * as path from "path"
-import { detectImportCycles } from "./import-cycles"
+import { detectImportCycles } from "../import-cycles"
 import fs from "fs"
 
 function getTempFolderPath(): string {
-	return path.join(__dirname, "../temp")
+	return path.join(__dirname, "../../temp")
 }
 
 function setupTempFolder(folderPath: string) {
@@ -368,7 +368,6 @@ describe("Multiple cycle in multiple files", async function () {
 		getEntryFilePath(test1FilesFolder, "entry2.ts"),
 	])
 	it("should have 2 files that have cycles", async function () {
-		
 		assert.equal((await importCycles).length, 2)
 	})
 	it("entry.ts should have 2 cycles", async function () {
