@@ -23,7 +23,6 @@ function resolvePath(path: string): string {
 	if (!path.startsWith("/")) {
 		path = Path.resolve(path)
 	}
-	path = path.replace(/\\/g, "/")
 	return path
 }
 
@@ -67,19 +66,11 @@ function readDependency(
 		}
 		return;
 	}
-	currentDependency.dependencies.forEach((dependency) => {
+	for(const [dependencyPath,dependency] of currentDependency.dependencies.entries()){
 		if(dependency){
-			const dependencyMap = dependency.dependencies;
-			if(dependencyMap){
-				for(const [dependencyPath,dependency] of dependencyMap.entries()){
-					if(dependency){
-						readDependency(fileCycle,dependency,dependencyPath);
-					}
-				}
-			}
+			readDependency(fileCycle,dependency,dependencyPath);
 		}
-	});
-
+	}
 }
 async function getImportCycles(
 	dependencyMap: DependencyMap
