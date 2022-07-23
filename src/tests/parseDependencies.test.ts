@@ -1,10 +1,7 @@
 import assert from "assert"
 import { describe, it } from "mocha"
-import {
-	checkIfImportExistAtRuntime,
-	FileSource,
-	parseSource,
-} from "./import-cycles"
+import { checkIfImportExistAtRuntime, parseSource } from "../parser"
+import { FileSource } from "../types"
 
 async function parseDependencies(
 	entryPoint: string,

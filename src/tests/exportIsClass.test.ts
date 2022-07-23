@@ -1,6 +1,6 @@
 import assert from "assert"
 import { describe, it } from "mocha"
-import { isAClassExport, parseSource } from "./import-cycles"
+import { isAClassExport, parseSource } from "../parser"
 
 describe("exportIsClass", () => {
 	it("type", async () => {

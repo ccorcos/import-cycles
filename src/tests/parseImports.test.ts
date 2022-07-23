@@ -1,6 +1,6 @@
 import assert from "assert"
 import { describe, it } from "mocha"
-import { parseSource } from "./import-cycles"
+import { parseSource } from "../parser"
 
 interface formattedImport {
 	default?: boolean
