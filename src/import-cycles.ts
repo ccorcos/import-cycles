@@ -21,9 +21,14 @@ export type FileSource = { filePath: string; source: string }
 
 function resolvePath(path: string): string {
 	if (!path.startsWith("/")) {
-		return Path.resolve(path)
+		path = Path.resolve(path)
 	}
+	path = path.replace(/\\/g, "/")
 	return path
+}
+
+function getResolvedPaths(filesPaths: string[]) {
+	return filesPaths.map((filePath) => resolvePath(filePath))
 }
 
 function isATsFile(filePath: string): boolean {
@@ -52,24 +57,24 @@ async function getFilesImports(files: FileSource[]): Promise<FileImports[]> {
 
 function readDependency(
 	fileCycle: FileCycles,
-	dependency:Dependency,
+	currentDependency:Dependency,
 	currentDependencyPath:string
 ) {	
-	if(dependency.cycleDetected.length){
-		for (let index = 0; index < dependency.cycleDetected.length; index++) {
-			const cycle = dependency.cycleDetected[index];
-			fileCycle.cycle.push([...dependency.dependents,currentDependencyPath,cycle])
+	if(currentDependency.cycleDetected.length){
+		for (let index = 0; index < currentDependency.cycleDetected.length; index++) {
+			const cycle = currentDependency.cycleDetected[index];
+			fileCycle.cycle.push([...currentDependency.dependents,currentDependencyPath,cycle])
 		}
 		return;
 	}
-	dependency.dependencies.forEach((dependency:Dependency,dependencyPath:string) => {
-		const dependencyMap = dependency.dependencies;
-		if(dependencyMap){
-			const dependencyPaths = dependencyMap.keys();
-			for (const dependencyPath of dependencyPaths) {	
-				const dependency = dependencyMap.get(dependencyPath);
-				if(dependency){
-					readDependency(fileCycle,dependency,dependencyPath);
+	currentDependency.dependencies.forEach((dependency) => {
+		if(dependency){
+			const dependencyMap = dependency.dependencies;
+			if(dependencyMap){
+				for(const [dependencyPath,dependency] of dependencyMap.entries()){
+					if(dependency){
+						readDependency(fileCycle,dependency,dependencyPath);
+					}
 				}
 			}
 		}
@@ -80,9 +85,9 @@ async function getImportCycles(
 	dependencyMap: DependencyMap
 ): Promise<FileCycles[]> {
 	const filesCycles: FileCycles[] = []
-	dependencyMap.forEach((dependency:Dependency,dependencyPath:string) => {
-		const fileCycle: FileCycles = { filePath: resolvePath(dependencyPath), cycle: [] }
-		readDependency(fileCycle,dependency,dependencyPath);
+	dependencyMap.forEach((dependency,currentDependencyPath) => {
+		const fileCycle: FileCycles = { filePath: resolvePath(currentDependencyPath), cycle: [] }
+		readDependency(fileCycle,dependency as unknown as Dependency,currentDependencyPath);
 		if(fileCycle.cycle.length > 0){
 			filesCycles.push(fileCycle)
 		}
@@ -517,7 +522,7 @@ async function getSubDependencyMap(entryPath:string):Promise<DependencyMap>{
 	const subDependencyMap:DependencyMap = new Map();
 	for (let index = 0; index < importsArray.length; index++) {
 		const element = importsArray[index];
-		subDependencyMap.set(element, new Map() as any);
+		subDependencyMap.set(element, null);
 	}
 	return subDependencyMap
 }
@@ -591,12 +596,12 @@ interface Dependency{
 	dependents:string[]
 	cycleDetected:string[]
 }
-type DependencyMap = Map<string,Dependency>
+type DependencyMap = Map<string,Dependency | null>
 
 export async function detectImportCycles(entryPaths: string[]) {
-	// const filesPathsResolved = getResolvedPaths(entryPaths)
+	const filesPathsResolved = getResolvedPaths(entryPaths)
 	const dependencyMap:DependencyMap = new Map()
-	await fillDependencyMap(entryPaths,dependencyMap)
+	await fillDependencyMap(filesPathsResolved,dependencyMap)
 	// get a list of all import cycles
 	const cycles = await getImportCycles(dependencyMap)
 	// return the list of cycles
@@ -625,8 +630,7 @@ if (process.env.VSCODE_DEBUG) {
 	async function debug_test() {
 		analyzeImportCycles(
 			await detectImportCycles([
-				__dirname + "/../examples/types-cycles/test1MultipleCycles/entry.ts",
-				__dirname + "/../examples/types-cycles/test1MultipleCycles/entry2.ts",
+				__dirname + "/../examples/test1ClassCycles/entry.ts",
 			])
 		)
 	}
