@@ -29,14 +29,3 @@ export function analyzeImportCycles(fileCycles: FileCycles[]): void {
 		console.log(`\n ==== \n`)
 	})
 }
-
-if (process.env.VSCODE_DEBUG) {
-	async function debug_test() {
-		analyzeImportCycles(
-			await detectImportCycles([
-				__dirname + "/../examples/test1ClassCycles/entry.ts",
-			])
-		)
-	}
-	debug_test()
-}
